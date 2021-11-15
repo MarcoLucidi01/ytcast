@@ -3,6 +3,7 @@ package dial
 import (
 	"bufio"
 	"bytes"
+	"encoding/xml"
 	"fmt"
 	"net/http"
 	"strconv"
@@ -96,6 +97,57 @@ func makeResp(t *testing.T, raw []byte) *http.Response {
 	return resp
 }
 
+func TestUnmarshalAppInfo(t *testing.T) {
+	name := "YouTube"
+	allowStop := true
+	state := "running"
+	rel := "run"
+	href := "run"
+	resp := []byte(`
+<?xml version="1.0" encoding="UTF-8"?>
+<service xmlns="urn:dial-multiscreen-org:schemas:dial" dialVer="1.7">
+	<name>` + name + `</name>
+	<options allowStop="` + strconv.FormatBool(allowStop) + `"/>
+	<state>` + state + `</state>
+	<link rel="` + rel + `" href="` + href + `"/>
+</service>`)
+
+	var appInfo AppInfo
+	err := xml.Unmarshal(resp, &appInfo)
+	failIfNotNil(t, err)
+	failIfNotEqualS(t, "appInfo.Name", name, appInfo.Name)
+	failIfNotEqualS(t, "appInfo.State", state, appInfo.State)
+	failIfNotEqualS(t, "appInfo.Link.Rel", rel, appInfo.Link.Rel)
+	failIfNotEqualS(t, "appInfo.Link.Href", href, appInfo.Link.Href)
+	failIfNotEqualB(t, "appInfo.Options.AllowStop", allowStop, appInfo.Options.AllowStop)
+	failIfNotEqualS(t, "appInfo.Additional.Data", "", appInfo.Additional.Data)
+}
+
+func TestUnmarshalAppInfoAdditionalData(t *testing.T) {
+	additionalData := "\n<screenId>screen123</screenId>\n<sessionId>token123</sessionId>\n"
+	resp := []byte(`
+<?xml version="1.0" encoding="UTF-8"?>
+<service xmlns="urn:dial-multiscreen-org:schemas:dial" dialVer="1.7">
+	<name>YouTube</name>
+	<options allowStop="true"/>
+	<state>running</state>
+	<link rel="run" href="run"/>
+	<additionalData>` + additionalData + `</additionalData>
+</service>
+`)
+	var appInfo AppInfo
+	err := xml.Unmarshal(resp, &appInfo)
+	failIfNotNil(t, err)
+	failIfNotEqualS(t, "appInfo.Additional.Data", additionalData, appInfo.Additional.Data)
+}
+
+func TestBuildAppUrl(t *testing.T) {
+	want := "http://192.168.1.1:12345/apps/YouTube?clientDialVer=" + clientDialVer
+	appUrl, err := buildAppUrl("http://192.168.1.1:12345/apps", "YouTube")
+	failIfNotNil(t, err)
+	failIfNotEqualS(t, "appUrl", want, appUrl.String())
+}
+
 func TestParseWakeupGood(t *testing.T) {
 	mac := "10:dd:b1:c9:00:e4"
 	timeout := 10
@@ -137,5 +189,11 @@ func failIfNotEqualS(t *testing.T, prefix, want, got string) {
 func failIfNotEqualI(t *testing.T, prefix string, want, got int) {
 	if want != got {
 		t.Fatalf("%s: want %d got %d", prefix, want, got)
+	}
+}
+
+func failIfNotEqualB(t *testing.T, prefix string, want, got bool) {
+	if want != got {
+		t.Fatalf("%s: want %t got %t", prefix, want, got)
 	}
 }

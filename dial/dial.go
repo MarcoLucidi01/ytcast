@@ -8,6 +8,8 @@ import (
 	"io/ioutil"
 	"log"
 	"net/http"
+	"net/url"
+	"path"
 	"strconv"
 	"strings"
 	"sync"
@@ -16,6 +18,10 @@ import (
 )
 
 const (
+	// DIAL version supported by this client. Should be included as query
+	// parameter in requests
+	clientDialVer = "2.2.1"
+
 	// SSDP search target for DIAL devices
 	dialSearchTarget = "urn:dial-multiscreen-org:service:dial:1"
 
@@ -126,8 +132,7 @@ func parseDevice(service *ssdp.Service, resp *http.Response) (*Device, error) {
 	}
 
 	var desc struct {
-		XMLName      xml.Name `xml:"root"`
-		FriendlyName string   `xml:"device>friendlyName"`
+		FriendlyName string `xml:"device>friendlyName"`
 	}
 	if err := xml.Unmarshal(respBody, &desc); err != nil {
 		return nil, err
@@ -171,4 +176,97 @@ func parseWakeup(value string) Wakeup {
 	}
 
 	return Wakeup{Mac: mac, Timeout: timeout}
+}
+
+// AppInfo contains information about an application on a specific device.
+type AppInfo struct {
+	// Name is the application name
+	Name string `xml:"name"`
+
+	// State valid values are:
+	// - running: the application is installed and either starting or running;
+	// - stopped: the application is installed and not running;
+	// - installable=<URL>: the application is not installed but is
+	//   available for installation by sending an HTTP GET request to the
+	//   provided URL;
+	// - hidden: the application is running but is not visible to the user;
+	//
+	// any other value is invalid and should be ignored
+	State string `xml:"state"`
+
+	Options struct {
+		// AllowStop true indicates that the application can be stopped
+		// (if running) using an HTTP DELETE request
+		AllowStop bool `xml:"allowStop,attr"`
+	} `xml:"options"`
+
+	// Link is included when the application is running and can be stopped
+	// using a DELETE request.
+	Link struct {
+		// Rel is always "run".
+		Rel string `xml:"rel,attr"`
+
+		// Href contains the resource name of the running application
+		// and should match the last portion of the name returned in the
+		// 201 CREATED response.
+		Href string `xml:"href,attr"`
+	} `xml:"link"`
+
+	Additional struct {
+		// Additional.Data contains zero or more (dynamic) elements
+		// specific to the application and are returned as unparsed XML.
+		Data string `xml:",innerxml"`
+	} `xml:"additionalData"`
+}
+
+// GetAppInfo obtains information about an application on a Device.
+// appName should be an application name registered in the DIAL Registry.
+// headers map is used to pass additional headers (e.g. Origin) in the HTTP GET
+// request.
+func (d *Device) GetAppInfo(appName string, headers map[string]string) (*AppInfo, error) {
+	appUrl, err := buildAppUrl(d.ApplicationUrl, appName)
+	if err != nil {
+		return nil, err
+	}
+
+	req := &http.Request{Method: "GET", URL: appUrl, Header: http.Header{}}
+	for k, v := range headers {
+		req.Header.Set(k, v)
+	}
+
+	logVerbosef("GET %s", appUrl.String())
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != 200 {
+		return nil, fmt.Errorf("%s", resp.Status)
+	}
+
+	respBody, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		return nil, err
+	}
+
+	var appInfo AppInfo
+	if err := xml.Unmarshal(respBody, &appInfo); err != nil {
+		return nil, err
+	}
+
+	logVerbosef("application info %#v", appInfo)
+	return &appInfo, nil
+}
+
+func buildAppUrl(base, appName string) (*url.URL, error) {
+	appUrl, err := url.Parse(base)
+	if err != nil {
+		return nil, err
+	}
+	appUrl.Path = path.Join(appUrl.Path, appName)
+	params := url.Values{}
+	params.Set("clientDialVer", clientDialVer)
+	appUrl.RawQuery = params.Encode()
+	return appUrl, nil
 }
