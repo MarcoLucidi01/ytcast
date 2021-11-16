@@ -4,6 +4,9 @@ GO = go
 
 all: generate fmt vet test build
 
+run: generate
+	$(GO) $@ .
+
 build: generate
 	$(GO) $@
 
