@@ -4,6 +4,7 @@ package dial
 
 import (
 	"encoding/xml"
+	"errors"
 	"fmt"
 	"io/ioutil"
 	"log"
@@ -269,4 +270,49 @@ func buildAppUrl(base, appName string) (*url.URL, error) {
 	params.Set("clientDialVer", clientDialVer)
 	appUrl.RawQuery = params.Encode()
 	return appUrl, nil
+}
+
+func makeReq(method, baseUrl, appName, origin, payload string) (*http.Request, error) {
+	req, err := http.NewRequest(method, baseUrl, strings.NewReader(payload))
+	if err != nil {
+		return nil, err
+	}
+	req.URL.Path = path.Join(req.URL.Path, appName)
+	if len(origin) > 0 {
+		req.Header.Set("Origin", origin)
+	}
+	if len(payload) > 0 {
+		req.Header.Set("Content-Type", "text/plain; charset=utf-8")
+	}
+	return req, nil
+}
+
+// Launch launches an application on a Device.
+// If origin is not empty, it will be passed as Origin HTTP header.
+// If payload is not empty, it will be passed as HTTP message body with
+// Content-Type: text/plain; charset=utf-8.
+// Any non-successful response code (< 200 or > 299) from the server will
+// be returned as an error.
+// If present, the value of the Location response header will be returned by
+// this method, it represents the Application Instance URL.
+func (d *Device) Launch(appName, origin, payload string) (string, error) {
+	req, err := makeReq("POST", d.ApplicationUrl, appName, origin, payload)
+	if err != nil {
+		return "", err
+	}
+
+	logVerbosef("%s %s", req.Method, req.URL)
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		return "", err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode < 200 || resp.StatusCode > 299 {
+		return "", errors.New(resp.Status)
+	}
+
+	appInstanceUrl := resp.Header.Get("Location")
+	logVerbosef("application %q successfully launched, instance URL %s", appName, appInstanceUrl)
+	return appInstanceUrl, nil
 }
