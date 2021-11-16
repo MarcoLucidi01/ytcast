@@ -9,7 +9,6 @@ import (
 	"io/ioutil"
 	"log"
 	"net/http"
-	"net/url"
 	"path"
 	"strconv"
 	"strings"
@@ -19,10 +18,6 @@ import (
 )
 
 const (
-	// DIAL version supported by this client. Should be included as query
-	// parameter in requests
-	clientDialVer = "2.2.1"
-
 	// SSDP search target for DIAL devices
 	dialSearchTarget = "urn:dial-multiscreen-org:service:dial:1"
 
@@ -222,20 +217,15 @@ type AppInfo struct {
 
 // GetAppInfo obtains information about an application on a Device.
 // appName should be an application name registered in the DIAL Registry.
-// headers map is used to pass additional headers (e.g. Origin) in the HTTP GET
-// request.
-func (d *Device) GetAppInfo(appName string, headers map[string]string) (*AppInfo, error) {
-	appUrl, err := buildAppUrl(d.ApplicationUrl, appName)
+// If origin is not empty, it will be passed as Origin HTTP header.
+// Any response code != 200 from the server will be returned as an error.
+func (d *Device) GetAppInfo(appName string, origin string) (*AppInfo, error) {
+	req, err := makeReq("GET", d.ApplicationUrl, appName, origin, "")
 	if err != nil {
 		return nil, err
 	}
 
-	req := &http.Request{Method: "GET", URL: appUrl, Header: http.Header{}}
-	for k, v := range headers {
-		req.Header.Set(k, v)
-	}
-
-	logVerbosef("GET %s", appUrl.String())
+	logVerbosef("%s %s", req.Method, req.URL)
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
 		return nil, err
@@ -243,33 +233,19 @@ func (d *Device) GetAppInfo(appName string, headers map[string]string) (*AppInfo
 	defer resp.Body.Close()
 
 	if resp.StatusCode != 200 {
-		return nil, fmt.Errorf("%s", resp.Status)
+		return nil, errors.New(resp.Status)
 	}
 
 	respBody, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
 		return nil, err
 	}
-
 	var appInfo AppInfo
 	if err := xml.Unmarshal(respBody, &appInfo); err != nil {
 		return nil, err
 	}
-
-	logVerbosef("application info %#v", appInfo)
+	logVerbosef("application %q info %#v", appName, appInfo)
 	return &appInfo, nil
-}
-
-func buildAppUrl(base, appName string) (*url.URL, error) {
-	appUrl, err := url.Parse(base)
-	if err != nil {
-		return nil, err
-	}
-	appUrl.Path = path.Join(appUrl.Path, appName)
-	params := url.Values{}
-	params.Set("clientDialVer", clientDialVer)
-	appUrl.RawQuery = params.Encode()
-	return appUrl, nil
 }
 
 func makeReq(method, baseUrl, appName, origin, payload string) (*http.Request, error) {
@@ -288,6 +264,7 @@ func makeReq(method, baseUrl, appName, origin, payload string) (*http.Request, e
 }
 
 // Launch launches an application on a Device.
+// appName should be an application name registered in the DIAL Registry.
 // If origin is not empty, it will be passed as Origin HTTP header.
 // If payload is not empty, it will be passed as HTTP message body with
 // Content-Type: text/plain; charset=utf-8.

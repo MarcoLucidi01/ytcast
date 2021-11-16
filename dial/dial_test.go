@@ -141,13 +141,6 @@ func TestUnmarshalAppInfoAdditionalData(t *testing.T) {
 	failIfNotEqualS(t, "appInfo.Additional.Data", additionalData, appInfo.Additional.Data)
 }
 
-func TestBuildAppUrl(t *testing.T) {
-	want := "http://192.168.1.1:12345/apps/YouTube?clientDialVer=" + clientDialVer
-	appUrl, err := buildAppUrl("http://192.168.1.1:12345/apps", "YouTube")
-	failIfNotNil(t, err)
-	failIfNotEqualS(t, "appUrl", want, appUrl.String())
-}
-
 func TestParseWakeupGood(t *testing.T) {
 	mac := "10:dd:b1:c9:00:e4"
 	timeout := 10
