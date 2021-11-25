@@ -13,8 +13,10 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/MarcoLucidi01/ytcast/ssdp"
+	"github.com/MarcoLucidi01/ytcast/wol"
 )
 
 const (
@@ -23,10 +25,17 @@ const (
 
 	// buffer size of the channel used to return discovered devices
 	devChanBufSize = 10
+
+	wakeupBroadcastAddress = "255.255.255.255:9"
+	wakeupMinTimeout       = 10 * time.Second
+	wakeupMaxTimeout       = 150 * time.Second
+	wakeupCheckInterval    = 2 * time.Second
 )
 
 var (
 	LogVerbose = false // enable verbose logging
+
+	errNoMac = errors.New("missing device MAC address")
 )
 
 // Device represents a DIAL server device discovered on the network. Contains
@@ -292,4 +301,43 @@ func (d *Device) Launch(appName, origin, payload string) (string, error) {
 	appInstanceUrl := resp.Header.Get("Location")
 	logVerbosef("application %q successfully launched, instance URL %s", appName, appInstanceUrl)
 	return appInstanceUrl, nil
+}
+
+// TODO add logging
+// TODO add doc
+// TODO fix function name
+// TODO use common request builder
+func (d *Device) WakeupFunc() error {
+	if _, err := http.Get(d.ApplicationUrl); err == nil {
+		return nil // device is already up
+	}
+
+	if len(d.Wakeup.Mac) == 0 {
+		return errNoMac
+	}
+	if err := wol.Wakeup(d.Wakeup.Mac, wakeupBroadcastAddress); err != nil {
+		return err
+	}
+
+	timeout := time.Duration(d.Wakeup.Timeout) * time.Second
+	timeout = clamp(timeout, wakeupMinTimeout, wakeupMaxTimeout)
+	for start := time.Now(); time.Since(start) < timeout; {
+		time.Sleep(wakeupCheckInterval)
+		if _, err := http.Get(d.ApplicationUrl); err == nil {
+			return nil
+		}
+	}
+
+	_, err := http.Get(d.ApplicationUrl)
+	return err
+}
+
+func clamp(d, min, max time.Duration) time.Duration {
+	if d < min {
+		return min
+	}
+	if d > max {
+		return max
+	}
+	return d
 }
