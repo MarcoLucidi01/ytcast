@@ -27,32 +27,41 @@ const (
 	searchTimeout = 3
 )
 
-var (
-	errNoDevFound = errors.New("no device found")
-	errCanceled   = errors.New("canceled")
-)
-
 type cacheEntry struct {
 	Device *dial.Device
 	Remote *youtube.Remote
 }
 
+var (
+	errNoDevFound = errors.New("no device found")
+	errCanceled   = errors.New("canceled")
+
+	flagVerbose = flag.Bool("verbose", false, "enable verbose logging")
+)
+
 func main() {
+	flag.Usage = func() {
+		fmt.Fprintf(flag.CommandLine.Output(), "usage: %s [-v] [videoId...]\n", progName)
+		flag.PrintDefaults()
+	}
+	flag.Parse()
+
+	log.SetFlags(log.Ltime | log.Lmicroseconds | log.Lshortfile)
+	if !*flagVerbose {
+		log.SetOutput(ioutil.Discard)
+	}
+
 	if err := run(); err != nil {
-		fmt.Fprintf(os.Stderr, "%s: %s\n", os.Args[0], err)
+		log.Println(err)
+		fmt.Fprintf(os.Stderr, "%s: %s\n", progName, err)
 		os.Exit(1)
 	}
 }
 
 func run() error {
-	flag.Usage = func() {
-		fmt.Fprintf(flag.CommandLine.Output(), "usage: %s [videoId...]\n", os.Args[0])
-		flag.PrintDefaults()
-	}
-	flag.Parse()
-
-	cache := loadCache()
-	defer saveCache(cache)
+	cacheFilePath := path.Join(mkCacheDir(), cacheFileName)
+	cache := loadCache(cacheFilePath)
+	defer saveCache(cacheFilePath, cache)
 
 	dev, err := searchAndSelectDevice(cache)
 	if err != nil {
@@ -69,6 +78,51 @@ func run() error {
 		return playVideos(cache[dev.UniqueServiceName], app, flag.Args())
 	}
 	return nil
+}
+
+func mkCacheDir() string {
+	cacheDir := os.Getenv("XDG_CACHE_HOME")
+	if cacheDir == "" {
+		homeDir, err := os.UserHomeDir()
+		if err != nil {
+			log.Println(err)
+			return "." // current directory
+		}
+		cacheDir = path.Join(homeDir, ".cache")
+	}
+	cacheDir = path.Join(cacheDir, progName)
+	if err := os.MkdirAll(cacheDir, 0755); err != nil {
+		log.Println(err)
+		return "."
+	}
+	return cacheDir
+}
+
+func loadCache(fpath string) map[string]*cacheEntry {
+	log.Printf("loading cache %s", fpath)
+	data, err := ioutil.ReadFile(fpath)
+	if err != nil {
+		log.Println(err)
+		return make(map[string]*cacheEntry)
+	}
+	var cache map[string]*cacheEntry
+	if err = json.Unmarshal(data, &cache); err != nil {
+		log.Println(err)
+		return make(map[string]*cacheEntry)
+	}
+	return cache
+}
+
+func saveCache(fpath string, cache map[string]*cacheEntry) {
+	log.Printf("saving cache %s", fpath)
+	data, err := json.Marshal(cache)
+	if err != nil {
+		log.Printf("marshal cache: %s", err)
+		return
+	}
+	if err := ioutil.WriteFile(fpath, data, 0600); err != nil {
+		log.Println(err)
+	}
 }
 
 func searchAndSelectDevice(cache map[string]*cacheEntry) (*dial.Device, error) {
@@ -102,51 +156,6 @@ func searchAndSelectDevice(cache map[string]*cacheEntry) (*dial.Device, error) {
 		}
 		return devices[idx], nil
 	}
-}
-
-func loadCache() map[string]*cacheEntry {
-	data, err := ioutil.ReadFile(path.Join(mkCacheDir(), cacheFileName))
-	if err != nil {
-		if !os.IsNotExist(err) {
-			log.Println(err)
-		}
-		return make(map[string]*cacheEntry)
-	}
-	var cache map[string]*cacheEntry
-	if err = json.Unmarshal(data, &cache); err != nil {
-		log.Println(err)
-		return make(map[string]*cacheEntry)
-	}
-	return cache
-}
-
-func saveCache(cache map[string]*cacheEntry) {
-	data, err := json.MarshalIndent(cache, "", "    ")
-	if err != nil {
-		log.Println(err)
-		return
-	}
-	if err := ioutil.WriteFile(path.Join(mkCacheDir(), cacheFileName), data, 0600); err != nil {
-		log.Println(err)
-	}
-}
-
-func mkCacheDir() string {
-	cacheDir := os.Getenv("XDG_CACHE_HOME")
-	if cacheDir == "" {
-		homeDir, err := os.UserHomeDir()
-		if err != nil {
-			log.Println(err)
-			return "." // current directory
-		}
-		cacheDir = path.Join(homeDir, ".cache")
-	}
-	cacheDir = path.Join(cacheDir, progName)
-	if err := os.MkdirAll(cacheDir, 0755); err != nil {
-		log.Println(err)
-		return "."
-	}
-	return cacheDir
 }
 
 func searchDevices() ([]*dial.Device, error) {
