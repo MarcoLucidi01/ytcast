@@ -31,14 +31,14 @@ const (
 type Remote struct {
 	ScreenId    string // id of the screen (tv app) we are connected (or connecting) to.
 	Name        string // "our" name displayed on tv app at connection time.
-	Expiration  int64  // loungeToken expiration timestamp in milliseconds.
-	id          string // our (client) id? we use a randString() at the moment, an uuid would be better.
-	loungeToken string // token for lounge api requests.
-	aId         int    // don't know what it is, we pass 5.
-	rId         int    // request id? random id? we take a random integer and increment it at each request.
-	sId         string // session id? we fetch it after the token.
-	gsessionId  string // another session id? google session id? we fetch it along with sId.
-	ofs         int    // don't know what it is, we start at 0 and increment it on each "setPlaylist" request.
+	Id          string // our (client) id? we use a randString() at the moment, an uuid would be better.
+	LoungeToken string // token for lounge api requests.
+	Expiration  int64  // LoungeToken expiration timestamp in milliseconds.
+	AId         int    // don't know what it is, we pass 5.
+	RId         int    // request id? random id? we take a random integer and increment it at each request.
+	SId         string // session id? we fetch it at each Play().
+	GSessionId  string // another session id? google session id? we fetch it along with SId.
+	Ofs         int    // don't know what it is, we start at 0 and increment it on each Play().
 }
 
 func init() {
@@ -52,14 +52,11 @@ func Connect(screenId, name string) (*Remote, error) {
 	r := &Remote{
 		ScreenId: screenId,
 		Name:     name,
-		id:       randString(32),
-		aId:      5,
-		rId:      rand.Intn(99999),
+		Id:       randString(32),
+		AId:      5,
+		RId:      rand.Intn(99999),
 	}
 	if err := r.getLoungeToken(); err != nil {
-		return nil, err
-	}
-	if err := r.getSessionIds(); err != nil {
 		return nil, err
 	}
 	return r, nil
@@ -73,7 +70,7 @@ func (r *Remote) getLoungeToken() error {
 		return err
 	}
 
-	r.loungeToken, r.Expiration, err = extractLoungeToken(respBody)
+	r.LoungeToken, r.Expiration, err = extractLoungeToken(respBody)
 	if err != nil {
 		return err
 	}
@@ -109,8 +106,8 @@ func (r *Remote) getSessionIds() error {
 	q.Set("CVER", "1")
 	q.Set("app", "youtube-desktop")
 	q.Set("name", r.Name)
-	q.Set("loungeIdToken", r.loungeToken)
-	q.Set("id", r.id)
+	q.Set("loungeIdToken", r.LoungeToken)
+	q.Set("id", r.Id)
 	q.Set("zx", randString(12))
 	q.Set("RID", strconv.Itoa(r.nextRId()))
 	b := url.Values{}
@@ -120,7 +117,7 @@ func (r *Remote) getSessionIds() error {
 		return err
 	}
 
-	r.sId, r.gsessionId, err = extractSessionIds(respBody)
+	r.SId, r.GSessionId, err = extractSessionIds(respBody)
 	if err != nil {
 		return err
 	}
@@ -176,15 +173,18 @@ func extractSessionIds(data []byte) (string, string, error) {
 }
 
 func (r *Remote) Play(videoIds ...string) error {
+	if err := r.getSessionIds(); err != nil {
+		return err
+	}
 	q := url.Values{}
 	q.Set("device", "REMOTE_CONTROL")
 	q.Set("VER", "8")
-	q.Set("loungeIdToken", r.loungeToken)
-	q.Set("id", r.id)
+	q.Set("loungeIdToken", r.LoungeToken)
+	q.Set("id", r.Id)
 	q.Set("zx", randString(12))
-	q.Set("SID", r.sId)
-	q.Set("gsessionid", r.gsessionId)
-	q.Set("AID", strconv.Itoa(r.aId))
+	q.Set("SID", r.SId)
+	q.Set("gsessionid", r.GSessionId)
+	q.Set("AID", strconv.Itoa(r.AId))
 	q.Set("RID", strconv.Itoa(r.nextRId()))
 	b := url.Values{}
 	b.Set("count", "1")
@@ -222,15 +222,20 @@ func doReq(method, url string, query, body url.Values) ([]byte, error) {
 	return respBody, err
 }
 
+func (r *Remote) Expired() bool {
+	exp := time.Unix(0, r.Expiration*int64(time.Millisecond))
+	return time.Now().After(exp)
+}
+
 func (r *Remote) nextRId() int {
-	rId := r.rId
-	r.rId++
+	rId := r.RId
+	r.RId++
 	return rId
 }
 
 func (r *Remote) nextOfs() int {
-	ofs := r.ofs
-	r.ofs++
+	ofs := r.Ofs
+	r.Ofs++
 	return ofs
 }
 
