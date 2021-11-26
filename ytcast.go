@@ -24,7 +24,6 @@ import (
 const (
 	progName            = "ytcast"
 	cacheFileName       = progName + ".json"
-	discoverTimeout     = 3 // TODO use time.Duration
 	launchTimeout       = 1 * time.Minute
 	launchCheckInterval = 2 * time.Second
 )
@@ -133,9 +132,11 @@ func saveCache(fpath string, cache []*cacheEntry) {
 
 func selectDevice(cache *[]*cacheEntry) (*cacheEntry, error) {
 	refresh := false
+	timeout := 0
 	for {
 		if refresh || len(*cache) == 0 {
-			if err := discoverDevices(cache); err != nil {
+			timeout++
+			if err := discoverDevices(cache, timeout); err != nil {
 				return nil, err
 			}
 		}
@@ -154,8 +155,8 @@ func selectDevice(cache *[]*cacheEntry) (*cacheEntry, error) {
 	}
 }
 
-func discoverDevices(cache *[]*cacheEntry) error {
-	devCh, err := dial.Discover(discoverTimeout)
+func discoverDevices(cache *[]*cacheEntry, timeout int) error {
+	devCh, err := dial.Discover(timeout)
 	if err != nil {
 		return err
 	}
