@@ -34,7 +34,6 @@ type cacheEntry struct {
 }
 
 var (
-	errNoDevFound      = errors.New("no device found")
 	errCanceled        = errors.New("canceled")
 	errUnknownAppState = errors.New("unknown application state")
 	errNoLaunch        = errors.New("unable to launch YouTube application and get screenId")
@@ -131,19 +130,24 @@ func saveCache(fpath string, cache []*cacheEntry) {
 }
 
 func selectDevice(cache *[]*cacheEntry) (*cacheEntry, error) {
-	refresh := false
+	refresh := len(*cache) == 0
 	timeout := 0
 	for {
-		if refresh || len(*cache) == 0 {
+		if refresh {
 			timeout++
 			if err := discoverDevices(cache, timeout); err != nil {
 				return nil, err
 			}
 		}
-		if len(*cache) == 0 {
-			return nil, errNoDevFound
-		}
+		refresh = true // on next iteration
+
 		showDevices(*cache)
+		if len(*cache) == 0 {
+			if err := askRefreshOrCancel(); err != nil {
+				return nil, err
+			}
+			continue
+		}
 		dev, err := askWhichDevice(*cache)
 		if err != nil {
 			return nil, err
@@ -151,7 +155,6 @@ func selectDevice(cache *[]*cacheEntry) (*cacheEntry, error) {
 		if dev != nil {
 			return dev, nil
 		}
-		refresh = true
 	}
 }
 
@@ -185,6 +188,10 @@ func discoverDevices(cache *[]*cacheEntry, timeout int) error {
 }
 
 func showDevices(cache []*cacheEntry) {
+	if len(cache) == 0 {
+		fmt.Println("no device found!")
+		return
+	}
 	sort.Slice(cache, func(i, j int) bool {
 		return cache[i].Device.FriendlyName < cache[j].Device.FriendlyName
 	})
@@ -197,15 +204,35 @@ func showDevices(cache []*cacheEntry) {
 	}
 }
 
-func askWhichDevice(cache []*cacheEntry) (*cacheEntry, error) {
+func ask(question string) (string, error) {
 	s := bufio.NewScanner(os.Stdin)
+	fmt.Print(question)
+	s.Scan()
+	return strings.TrimSpace(s.Text()), s.Err()
+}
+
+func askRefreshOrCancel() error {
 	for {
-		fmt.Print("which device? (default 0, R refresh, C cancel): ")
-		s.Scan()
-		if s.Err() != nil {
-			return nil, s.Err()
+		input, err := ask("(R refresh, C cancel): ")
+		if err != nil {
+			return err
 		}
-		switch input := strings.TrimSpace(s.Text()); input {
+		switch input {
+		case "R", "r":
+			return nil
+		case "C", "c":
+			return errCanceled
+		}
+	}
+}
+
+func askWhichDevice(cache []*cacheEntry) (*cacheEntry, error) {
+	for {
+		input, err := ask("which device? (default 0, R refresh, C cancel): ")
+		if err != nil {
+			return nil, err
+		}
+		switch input {
 		case "":
 			return cache[0], nil
 		case "R", "r":
