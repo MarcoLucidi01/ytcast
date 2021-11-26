@@ -29,8 +29,10 @@ const (
 )
 
 type cacheEntry struct {
-	Device *dial.Device
-	Remote *youtube.Remote
+	Device   *dial.Device
+	Remote   *youtube.Remote
+	LastUsed bool
+	cached   bool
 }
 
 var (
@@ -77,6 +79,9 @@ func run() error {
 	if err != nil {
 		return err
 	}
+	for _, e := range cache {
+		e.LastUsed = e == entry
+	}
 	if flag.NArg() > 0 {
 		return playVideos(entry, screenId, flag.Args())
 	}
@@ -113,6 +118,9 @@ func loadCache(fpath string) []*cacheEntry {
 	if err = json.Unmarshal(data, &cache); err != nil {
 		log.Println(err)
 		return nil
+	}
+	for _, entry := range cache {
+		entry.cached = true
 	}
 	return cache
 }
@@ -173,6 +181,7 @@ func discoverDevices(cache *[]*cacheEntry, timeout int) error {
 	for dev := range devCh {
 		if entry, ok := cacheMap[dev.UniqueServiceName]; ok {
 			entry.Device = dev
+			entry.cached = false
 		} else {
 			cacheMap[dev.UniqueServiceName] = &cacheEntry{Device: dev}
 		}
@@ -193,14 +202,24 @@ func showDevices(cache []*cacheEntry) {
 		return
 	}
 	sort.Slice(cache, func(i, j int) bool {
-		return cache[i].Device.FriendlyName < cache[j].Device.FriendlyName
+		a := cache[i]
+		b := cache[j]
+		return a.LastUsed || (!a.cached && b.cached) || a.Device.FriendlyName < b.Device.FriendlyName
 	})
 	for i, entry := range cache {
+		var info []string
 		host := entry.Device.ApplicationUrl
 		if u, err := url.Parse(entry.Device.ApplicationUrl); err == nil {
 			host = u.Hostname()
 		}
-		fmt.Printf("[%d] %-30s %s\n", i, entry.Device.FriendlyName, host)
+		info = append(info, host)
+		if entry.cached {
+			info = append(info, "cached")
+		}
+		if entry.LastUsed {
+			info = append(info, "lastused")
+		}
+		fmt.Printf("[%d] %-30s (%s)\n", i, entry.Device.FriendlyName, strings.Join(info, ", "))
 	}
 }
 
