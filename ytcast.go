@@ -22,9 +22,11 @@ import (
 )
 
 const (
-	progName      = "ytcast"
-	cacheFileName = progName + ".json"
-	searchTimeout = 3
+	progName            = "ytcast"
+	cacheFileName       = progName + ".json"
+	discoverTimeout     = 3 // TODO use time.Duration
+	launchTimeout       = 1 * time.Minute
+	launchCheckInterval = 2 * time.Second
 )
 
 type cacheEntry struct {
@@ -33,8 +35,10 @@ type cacheEntry struct {
 }
 
 var (
-	errNoDevFound = errors.New("no device found")
-	errCanceled   = errors.New("canceled")
+	errNoDevFound      = errors.New("no device found")
+	errCanceled        = errors.New("canceled")
+	errUnknownAppState = errors.New("unknown application state")
+	errNoLaunch        = errors.New("unable to launch YouTube application and get screenId")
 
 	flagVerbose = flag.Bool("verbose", false, "enable verbose logging")
 )
@@ -61,21 +65,22 @@ func main() {
 func run() error {
 	cacheFilePath := path.Join(mkCacheDir(), cacheFileName)
 	cache := loadCache(cacheFilePath)
-	defer saveCache(cacheFilePath, cache)
+	// cache slice will likely change, cannot defer saveCache() directly
+	defer func() { saveCache(cacheFilePath, cache) }()
 
-	dev, err := searchAndSelectDevice(cache)
+	entry, err := selectDevice(&cache)
 	if err != nil {
 		return err
 	}
-	if err := dev.WakeupFunc(); err != nil {
+	if err := entry.Device.WakeupFunc(); err != nil {
 		return err
 	}
-	app, err := launchYouTubeApp(dev)
+	screenId, err := launchYouTubeApp(entry)
 	if err != nil {
 		return err
 	}
 	if flag.NArg() > 0 {
-		return playVideos(cache[dev.UniqueServiceName], app, flag.Args())
+		return playVideos(entry, screenId, flag.Args())
 	}
 	return nil
 }
@@ -91,6 +96,7 @@ func mkCacheDir() string {
 		cacheDir = path.Join(homeDir, ".cache")
 	}
 	cacheDir = path.Join(cacheDir, progName)
+	log.Printf("mkdir -p %s", cacheDir)
 	if err := os.MkdirAll(cacheDir, 0755); err != nil {
 		log.Println(err)
 		return "."
@@ -98,22 +104,22 @@ func mkCacheDir() string {
 	return cacheDir
 }
 
-func loadCache(fpath string) map[string]*cacheEntry {
+func loadCache(fpath string) []*cacheEntry {
 	log.Printf("loading cache %s", fpath)
 	data, err := ioutil.ReadFile(fpath)
 	if err != nil {
 		log.Println(err)
-		return make(map[string]*cacheEntry)
+		return nil
 	}
-	var cache map[string]*cacheEntry
+	var cache []*cacheEntry
 	if err = json.Unmarshal(data, &cache); err != nil {
 		log.Println(err)
-		return make(map[string]*cacheEntry)
+		return nil
 	}
 	return cache
 }
 
-func saveCache(fpath string, cache map[string]*cacheEntry) {
+func saveCache(fpath string, cache []*cacheEntry) {
 	log.Printf("saving cache %s", fpath)
 	data, err := json.Marshal(cache)
 	if err != nil {
@@ -125,158 +131,120 @@ func saveCache(fpath string, cache map[string]*cacheEntry) {
 	}
 }
 
-func searchAndSelectDevice(cache map[string]*cacheEntry) (*dial.Device, error) {
-	var devices []*dial.Device
-	var err error
-
-	// show cached devices first (if any)
-	for _, entry := range cache {
-		devices = append(devices, entry.Device)
-	}
-	if len(devices) == 0 {
-		if devices, err = searchDevices(); err != nil {
-			return nil, err
-		}
-	}
+func selectDevice(cache *[]*cacheEntry) (*cacheEntry, error) {
+	refresh := false
 	for {
-		if len(devices) == 0 {
+		if refresh || len(*cache) == 0 {
+			if err := discoverDevices(cache); err != nil {
+				return nil, err
+			}
+		}
+		if len(*cache) == 0 {
 			return nil, errNoDevFound
 		}
-		updateDevicesCache(cache, devices)
-		showDevices(devices)
-		idx, err := askDeviceIndex(len(devices) - 1)
+		showDevices(*cache)
+		dev, err := askWhichDevice(*cache)
 		if err != nil {
 			return nil, err
 		}
-		if idx < 0 { // search again
-			if devices, err = searchDevices(); err != nil {
-				return nil, err
-			}
-			continue
+		if dev != nil {
+			return dev, nil
 		}
-		return devices[idx], nil
+		refresh = true
 	}
 }
 
-func searchDevices() ([]*dial.Device, error) {
-	devCh, err := dial.Discover(searchTimeout)
-	if err != nil {
-		return nil, err
-	}
-	var devices []*dial.Device
-	for dev := range devCh {
-		devices = append(devices, dev)
-	}
-	return devices, nil
-}
-
-func updateDevicesCache(cache map[string]*cacheEntry, devices []*dial.Device) {
-	for _, dev := range devices {
-		if entry, ok := cache[dev.UniqueServiceName]; ok {
-			entry.Device = dev
-		} else {
-			cache[dev.UniqueServiceName] = &cacheEntry{Device: dev}
-		}
-	}
-}
-
-func showDevices(devices []*dial.Device) {
-	sort.Slice(devices, func(i, j int) bool {
-		return devices[i].FriendlyName < devices[j].FriendlyName
-	})
-	for i, dev := range devices {
-		host := dev.ApplicationUrl
-		if u, err := url.Parse(dev.ApplicationUrl); err == nil {
-			host = u.Hostname()
-		}
-		fmt.Printf("[%d] %-30s %s\n", i, dev.FriendlyName, host)
-	}
-}
-
-func askYesNo(msg string, a ...interface{}) (bool, error) {
-	for {
-		ans, err := ask(msg, a...)
-		if err != nil {
-			return false, err
-		}
-		switch ans {
-		case "", "y", "yes", "Y", "YES":
-			return true, nil
-		case "n", "no", "N", "NO":
-			return false, nil
-		}
-	}
-}
-
-func ask(msg string, a ...interface{}) (string, error) {
-	fmt.Printf(msg, a...)
-	s := bufio.NewScanner(os.Stdin)
-	s.Scan()
-	return strings.TrimSpace(s.Text()), s.Err()
-}
-
-func askDeviceIndex(max int) (int, error) {
-	for {
-		input, err := ask("select device (default 0, R refresh, C cancel): ")
-		if err != nil {
-			return 0, err
-		}
-		switch input {
-		case "":
-			return 0, nil
-		case "R", "r":
-			return -1, nil
-		case "C", "c":
-			return 0, errCanceled
-		default:
-			if i, err := strconv.Atoi(input); err == nil && i >= 0 && i <= max {
-				return i, nil
-			}
-		}
-	}
-}
-
-func launchYouTubeApp(dev *dial.Device) (*dial.AppInfo, error) {
-	for i := 0; i < 5; i++ {
-		app, err := dev.GetAppInfo("YouTube", youtube.Origin)
-		if err != nil {
-			return nil, err
-		}
-		switch app.State {
-		case "running":
-			if screenId, _ := extractScreenId(app.Additional.Data); screenId != "" {
-				return app, nil
-			}
-		case "stopped", "hidden":
-			if _, err := dev.Launch("YouTube", youtube.Origin, ""); err != nil {
-				return nil, err
-			}
-		default:
-			return nil, fmt.Errorf("unknown application state: %s", app.State)
-		}
-		time.Sleep(2 * time.Second)
-	}
-	return nil, errors.New("unable to start YouTube application")
-}
-
-func playVideos(entry *cacheEntry, app *dial.AppInfo, videoIds []string) error {
-	screenId, err := extractScreenId(app.Additional.Data)
+func discoverDevices(cache *[]*cacheEntry) error {
+	devCh, err := dial.Discover(discoverTimeout)
 	if err != nil {
 		return err
 	}
 
-	remote := entry.Remote
-	if remote == nil || remote.ScreenId != screenId || remote.Expired() {
-		if remote, err = youtube.Connect(screenId, progName); err != nil {
-			return err
-		}
-		entry.Remote = remote
+	// make a map to easily find devices for cache update
+	cacheMap := make(map[string]*cacheEntry)
+	for _, entry := range *cache {
+		cacheMap[entry.Device.UniqueServiceName] = entry
 	}
 
-	for i, v := range videoIds {
-		videoIds[i] = extractVideoId(v)
+	for dev := range devCh {
+		if entry, ok := cacheMap[dev.UniqueServiceName]; ok {
+			entry.Device = dev
+		} else {
+			cacheMap[dev.UniqueServiceName] = &cacheEntry{Device: dev}
+		}
 	}
-	return remote.Play(videoIds...)
+
+	// update original slice
+	*cache = (*cache)[:0]
+	for _, entry := range cacheMap {
+		*cache = append(*cache, entry)
+	}
+
+	return nil
+}
+
+func showDevices(cache []*cacheEntry) {
+	sort.Slice(cache, func(i, j int) bool {
+		return cache[i].Device.FriendlyName < cache[j].Device.FriendlyName
+	})
+	for i, entry := range cache {
+		host := entry.Device.ApplicationUrl
+		if u, err := url.Parse(entry.Device.ApplicationUrl); err == nil {
+			host = u.Hostname()
+		}
+		fmt.Printf("[%d] %-30s %s\n", i, entry.Device.FriendlyName, host)
+	}
+}
+
+func askWhichDevice(cache []*cacheEntry) (*cacheEntry, error) {
+	s := bufio.NewScanner(os.Stdin)
+	for {
+		fmt.Print("which device? (default 0, R refresh, C cancel): ")
+		s.Scan()
+		if s.Err() != nil {
+			return nil, s.Err()
+		}
+		switch input := strings.TrimSpace(s.Text()); input {
+		case "":
+			return cache[0], nil
+		case "R", "r":
+			return nil, nil
+		case "C", "c":
+			return nil, errCanceled
+		default:
+			i, err := strconv.Atoi(input)
+			if err == nil && i >= 0 && i < len(cache) {
+				return cache[i], nil
+			}
+		}
+	}
+}
+
+func launchYouTubeApp(entry *cacheEntry) (string, error) {
+	for start := time.Now(); time.Since(start) < launchTimeout; {
+		app, err := entry.Device.GetAppInfo("YouTube", youtube.Origin)
+		if err != nil {
+			return "", err
+		}
+		switch app.State {
+		case "running":
+			screenId, err := extractScreenId(app.Additional.Data)
+			if err != nil {
+				return "", err
+			}
+			if screenId != "" {
+				return screenId, nil
+			}
+		case "stopped", "hidden":
+			if _, err := entry.Device.Launch("YouTube", youtube.Origin, ""); err != nil {
+				return "", err
+			}
+		default:
+			return "", fmt.Errorf("%w: %s", errUnknownAppState, app.State)
+		}
+		time.Sleep(launchCheckInterval)
+	}
+	return "", errNoLaunch
 }
 
 func extractScreenId(data string) (string, error) {
@@ -290,11 +258,22 @@ func extractScreenId(data string) (string, error) {
 	if err := xml.Unmarshal([]byte(data), &v); err != nil {
 		return "", err
 	}
-	v.ScreenId = strings.TrimSpace(v.ScreenId)
-	if len(v.ScreenId) == 0 {
-		return "", errors.New("screenId empty")
+	return strings.TrimSpace(v.ScreenId), nil
+}
+
+func playVideos(entry *cacheEntry, screenId string, videoIds []string) error {
+	remote := entry.Remote
+	if remote == nil || remote.ScreenId != screenId || remote.Expired() {
+		var err error
+		if remote, err = youtube.Connect(screenId, progName); err != nil {
+			return err
+		}
+		entry.Remote = remote
 	}
-	return v.ScreenId, nil
+	for i, v := range videoIds {
+		videoIds[i] = extractVideoId(v)
+	}
+	return remote.Play(videoIds...)
 }
 
 func extractVideoId(v string) string {
