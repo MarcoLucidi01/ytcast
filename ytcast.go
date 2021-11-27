@@ -37,8 +37,8 @@ type cacheEntry struct {
 
 var (
 	errCanceled        = errors.New("canceled")
-	errUnknownAppState = errors.New("unknown application state")
-	errNoLaunch        = errors.New("unable to launch YouTube application and get screenId")
+	errUnknownAppState = errors.New("unknown app state")
+	errNoLaunch        = fmt.Errorf("unable to launch %s app and get screenId", youtube.DialAppName)
 
 	flagVerbose = flag.Bool("verbose", false, "enable verbose logging")
 )
@@ -277,13 +277,13 @@ func askWhichDevice(cache []*cacheEntry) (*cacheEntry, error) {
 
 func launchYouTubeApp(entry *cacheEntry) (string, error) {
 	for start := time.Now(); time.Since(start) < launchTimeout; time.Sleep(launchCheckInterval) {
-		app, err := entry.Device.GetAppInfo("YouTube", youtube.Origin)
+		app, err := entry.Device.GetAppInfo(youtube.DialAppName, youtube.Origin)
 		if err != nil {
 			return "", err
 		}
 		switch app.State {
 		case "running":
-			log.Printf("YouTube app is running on %q", entry.Device.UniqueServiceName)
+			log.Printf("%s app is running on %q", youtube.DialAppName, entry.Device.UniqueServiceName)
 			screenId, err := extractScreenId(app.Additional.Data)
 			if err != nil {
 				return "", err
@@ -293,11 +293,11 @@ func launchYouTubeApp(entry *cacheEntry) (string, error) {
 			}
 			log.Println("screenId still not available")
 		case "stopped", "hidden":
-			if _, err := entry.Device.Launch("YouTube", youtube.Origin, ""); err != nil {
+			if _, err := entry.Device.Launch(youtube.DialAppName, youtube.Origin, ""); err != nil {
 				return "", err
 			}
 		default:
-			return "", fmt.Errorf("YouTube app: %s: %w", app.State, errUnknownAppState)
+			return "", fmt.Errorf("%s app: %s: %w", youtube.DialAppName, app.State, errUnknownAppState)
 		}
 	}
 	return "", errNoLaunch

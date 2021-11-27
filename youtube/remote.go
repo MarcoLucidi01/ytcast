@@ -20,10 +20,15 @@ const (
 	apiGetLoungeToken = apiBase + "/pairing/get_lounge_token_batch"
 	apiBind           = apiBase + "/bc/bind"
 
-	// Origin header value for api requests.
-	Origin = "https://www.youtube.com"
-	// userAgent header value for api requests.
+	// userAgent header value for http requests.
 	userAgent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/96.0.4664.45 Safari/537.36"
+
+	// Origin header value for http requests.
+	Origin = "https://www.youtube.com"
+
+	// YouTube application name registered in the DIAL register.
+	// see http://www.dial-multiscreen.org/dial-registry/namespace-database
+	DialAppName = "YouTube"
 )
 
 // Remote holds session state and tokens for a "connected" youtube tv app and
