@@ -202,9 +202,17 @@ func showDevices(cache []*cacheEntry) {
 		return
 	}
 	sort.Slice(cache, func(i, j int) bool {
-		a := cache[i]
-		b := cache[j]
-		return a.LastUsed || (!a.cached && b.cached) || a.Device.FriendlyName < b.Device.FriendlyName
+		switch {
+		case cache[i].LastUsed:
+			return true
+		case cache[j].LastUsed:
+			return false
+		case !cache[i].cached && cache[j].cached:
+			return true
+		case cache[i].cached && !cache[j].cached:
+			return false
+		}
+		return cache[i].Device.FriendlyName < cache[j].Device.FriendlyName
 	})
 	for i, entry := range cache {
 		var info []string
