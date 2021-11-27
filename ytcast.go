@@ -139,13 +139,13 @@ func saveCache(fpath string, cache []*cacheEntry) {
 
 func selectDevice(cache *[]*cacheEntry) (*cacheEntry, error) {
 	refresh := len(*cache) == 0
-	timeout := 0
+	timeout := 2
 	for {
 		if refresh {
-			timeout++
 			if err := discoverDevices(cache, timeout); err != nil {
 				return nil, err
 			}
+			timeout++
 		}
 		refresh = true // on next iteration
 
@@ -276,13 +276,14 @@ func askWhichDevice(cache []*cacheEntry) (*cacheEntry, error) {
 }
 
 func launchYouTubeApp(entry *cacheEntry) (string, error) {
-	for start := time.Now(); time.Since(start) < launchTimeout; {
+	for start := time.Now(); time.Since(start) < launchTimeout; time.Sleep(launchCheckInterval) {
 		app, err := entry.Device.GetAppInfo("YouTube", youtube.Origin)
 		if err != nil {
 			return "", err
 		}
 		switch app.State {
 		case "running":
+			log.Printf("YouTube app is running on %q", entry.Device.UniqueServiceName)
 			screenId, err := extractScreenId(app.Additional.Data)
 			if err != nil {
 				return "", err
@@ -290,14 +291,14 @@ func launchYouTubeApp(entry *cacheEntry) (string, error) {
 			if screenId != "" {
 				return screenId, nil
 			}
+			log.Println("screenId still not available")
 		case "stopped", "hidden":
 			if _, err := entry.Device.Launch("YouTube", youtube.Origin, ""); err != nil {
 				return "", err
 			}
 		default:
-			return "", fmt.Errorf("%w: %s", errUnknownAppState, app.State)
+			return "", fmt.Errorf("YouTube app: %s: %w", app.State, errUnknownAppState)
 		}
-		time.Sleep(launchCheckInterval)
 	}
 	return "", errNoLaunch
 }
@@ -319,6 +320,9 @@ func extractScreenId(data string) (string, error) {
 func playVideos(entry *cacheEntry, screenId string, videoIds []string) error {
 	remote := entry.Remote
 	if remote == nil || remote.ScreenId != screenId || remote.Expired() {
+		if remote != nil {
+			log.Println("unable to reuse cached YouTube Lounge session")
+		}
 		var err error
 		if remote, err = youtube.Connect(screenId, progName); err != nil {
 			return err
@@ -338,10 +342,10 @@ func extractVideoId(v string) string {
 		return v
 	}
 	vid := u.Query().Get("v")
-	if len(vid) > 0 {
+	if vid != "" {
 		return vid
 	}
-	if vid = path.Base(u.Path); len(vid) > 0 && vid != "." && vid != "/" {
+	if vid = path.Base(u.Path); vid != "" && vid != "." && vid != "/" {
 		return vid
 	}
 	return v
