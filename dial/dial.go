@@ -14,9 +14,6 @@ import (
 	"strings"
 	"sync"
 	"time"
-
-	"github.com/MarcoLucidi01/ytcast/ssdp"
-	"github.com/MarcoLucidi01/ytcast/wol"
 )
 
 const (
@@ -39,17 +36,17 @@ var (
 )
 
 // Device represents a DIAL server device discovered on the network. Contains
-// information from both ssdp.Service and device description response from the
+// information from both ssdpService and device description response from the
 // service Location.
 type Device struct {
-	UniqueServiceName string // UniqueServiceName from the ssdp.Service
-	Location          string // Location from the ssdp.Service
+	UniqueServiceName string // UniqueServiceName from the ssdpService
+	Location          string // Location from the ssdpService
 	ApplicationUrl    string // absolute HTTP URL, identifies the base DIAL REST service
 	FriendlyName      string // UPnP friendlyName field of the device description response
-	Wakeup            Wakeup // WAKEUP header values from the ssdp.Service (optional)
+	Wakeup            Wakeup // WAKEUP header values from the ssdpService (optional)
 }
 
-// Wakeup contains values of WAKEUP header from the ssdp.Service (i.e. an
+// Wakeup contains values of WAKEUP header from the ssdpService (i.e. an
 // M-SEARCH response) that could be used to WoL or WoWLAN the Device.
 type Wakeup struct {
 	// MAC address of the first-screen device's wired or wireless network
@@ -63,8 +60,8 @@ type Wakeup struct {
 
 // Discover discovers unique DIAL server devices on the network. timeout is used
 // to wait for the underlying SSDP M-SEARCH responses.
-func Discover(timeout int) (chan *Device, error) {
-	ssdpCh, err := ssdp.Search(dialSearchTarget, timeout)
+func Discover(timeout time.Duration) (chan *Device, error) {
+	ssdpCh, err := Search(dialSearchTarget, timeout)
 	if err != nil {
 		return nil, err
 	}
@@ -99,7 +96,7 @@ func logVerbosef(format string, args ...interface{}) {
 	}
 }
 
-func getDeviceDesc(service *ssdp.Service, wg *sync.WaitGroup, ch chan *Device) {
+func getDeviceDesc(service *ssdpService, wg *sync.WaitGroup, ch chan *Device) {
 	defer wg.Done()
 
 	logVerbosef("sending GET %s", service.Location)
@@ -121,7 +118,7 @@ func getDeviceDesc(service *ssdp.Service, wg *sync.WaitGroup, ch chan *Device) {
 
 // parseDevice builds a Device struct joining values from service and device
 // description response from service.Location.
-func parseDevice(service *ssdp.Service, resp *http.Response) (*Device, error) {
+func parseDevice(service *ssdpService, resp *http.Response) (*Device, error) {
 	if resp.StatusCode != 200 {
 		return nil, fmt.Errorf("%s", resp.Status)
 	}
@@ -315,7 +312,7 @@ func (d *Device) WakeupFunc() error {
 	if len(d.Wakeup.Mac) == 0 {
 		return errNoMac
 	}
-	if err := wol.Wakeup(d.Wakeup.Mac, wakeupBroadcastAddress); err != nil {
+	if err := wakeOnLan(d.Wakeup.Mac, wakeupBroadcastAddress); err != nil {
 		return err
 	}
 
@@ -330,14 +327,4 @@ func (d *Device) WakeupFunc() error {
 
 	_, err := http.Get(d.ApplicationUrl)
 	return err
-}
-
-func clamp(d, min, max time.Duration) time.Duration {
-	if d < min {
-		return min
-	}
-	if d > max {
-		return max
-	}
-	return d
 }

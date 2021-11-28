@@ -1,4 +1,4 @@
-package ssdp
+package dial
 
 import (
 	"testing"
@@ -71,18 +71,6 @@ func TestParseMSearchRespMissingSt(t *testing.T) {
 
 	_, err := parseMSearchResp(resp)
 	failIfNil(t, err)
-}
-
-func failIfNil(t *testing.T, err error) {
-	if err == nil {
-		t.Fatalf("want error but got nil")
-	}
-}
-
-func failIfNotNil(t *testing.T, err error) {
-	if err != nil {
-		t.Fatalf("got unexpected error: %s", err)
-	}
 }
 
 func failIfNotEqual(t *testing.T, prefix, want, got string) {

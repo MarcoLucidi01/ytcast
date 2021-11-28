@@ -1,7 +1,7 @@
 // Package wol implements Wake-on-LAN standard that allows a computer to be
 // turned on by a network message.
 // https://en.wikipedia.org/wiki/Wake-on-LAN
-package wol
+package dial
 
 import "net"
 
@@ -11,7 +11,7 @@ import "net"
 // baddr is UDP's destination address, should be a broadcast address, usually
 // "255.255.255.255:9" is a sane choice (limited broadcast address and
 // discard port).
-func Wakeup(mac, baddr string) error {
+func wakeOnLan(mac, baddr string) error {
 	addr, err := net.ParseMAC(mac)
 	if err != nil {
 		return err

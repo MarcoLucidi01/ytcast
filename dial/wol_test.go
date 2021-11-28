@@ -1,4 +1,4 @@
-package wol
+package dial
 
 import (
 	"fmt"
@@ -13,7 +13,7 @@ func TestWakeup(t *testing.T) {
 	if len(mac) == 0 {
 		t.SkipNow()
 	}
-	failIfNotNil(t, Wakeup(mac, baddr))
+	failIfNotNil(t, wakeOnLan(mac, baddr))
 }
 
 func TestMakeMagicPacket(t *testing.T) {
@@ -44,12 +44,6 @@ func TestMakeMagicPacket(t *testing.T) {
 				failIfNotEqualByte(t, prefix, addr[k], magic[i])
 			}
 		}
-	}
-}
-
-func failIfNotNil(t *testing.T, err error) {
-	if err != nil {
-		t.Fatalf("got unexpected error: %s", err)
 	}
 }
 

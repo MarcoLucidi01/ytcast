@@ -8,14 +8,12 @@ import (
 	"net/http"
 	"strconv"
 	"testing"
-
-	"github.com/MarcoLucidi01/ytcast/ssdp"
 )
 
 func TestParseDeviceGood(t *testing.T) {
 	mac := "10:dd:b1:c9:00:e4"
 	timeout := 60
-	service := &ssdp.Service{
+	service := &ssdpService{
 		UniqueServiceName: "device-UUID",
 		Location:          "http://192.168.1.1:52235/dd.xml",
 		SearchTarget:      "urn:dial-multiscreen-org:service:dial:1",
@@ -72,7 +70,7 @@ func TestParseDeviceGood(t *testing.T) {
 func TestParseDeviceInvalidStatus(t *testing.T) {
 	resp := makeResp(t, []byte("HTTP/1.1 404 Not Found\r\nConnection: Close\r\n\r\n"))
 	defer resp.Body.Close()
-	_, err := parseDevice(&ssdp.Service{}, resp)
+	_, err := parseDevice(&ssdpService{}, resp)
 	failIfNil(t, err)
 }
 
@@ -87,7 +85,7 @@ func TestParseDeviceMissingApplicationUrl(t *testing.T) {
 		</root>
 		`))
 	defer resp.Body.Close()
-	_, err := parseDevice(&ssdp.Service{}, resp)
+	_, err := parseDevice(&ssdpService{}, resp)
 	failIfNil(t, err)
 }
 

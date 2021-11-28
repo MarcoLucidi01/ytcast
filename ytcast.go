@@ -139,13 +139,13 @@ func saveCache(fpath string, cache []*cacheEntry) {
 
 func selectDevice(cache *[]*cacheEntry) (*cacheEntry, error) {
 	refresh := len(*cache) == 0
-	timeout := 2
+	timeout := 2 * time.Second
 	for {
 		if refresh {
 			if err := discoverDevices(cache, timeout); err != nil {
 				return nil, err
 			}
-			timeout++
+			timeout += 1 * time.Second
 		}
 		refresh = true // on next iteration
 
@@ -166,7 +166,7 @@ func selectDevice(cache *[]*cacheEntry) (*cacheEntry, error) {
 	}
 }
 
-func discoverDevices(cache *[]*cacheEntry, timeout int) error {
+func discoverDevices(cache *[]*cacheEntry, timeout time.Duration) error {
 	devCh, err := dial.Discover(timeout)
 	if err != nil {
 		return err

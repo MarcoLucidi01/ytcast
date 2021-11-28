@@ -1,6 +1,6 @@
 // Package ssdp implements M-SEARCH method of Simple Service Discovery Protocol
 // to discover services on the network.
-package ssdp
+package dial
 
 import (
 	"bufio"
@@ -15,19 +15,15 @@ import (
 const (
 	multicastAddr = "239.255.255.250:1900" // multicast address and port reserved for SSDP by IANA
 
-	minTimeout = 1 // min wait time in seconds for M-SEARCH responses
-	maxTimeout = 5 // max wait time in seconds for M-SEARCH responses
+	minTimeout = 1 * time.Second // min wait time in seconds for M-SEARCH responses
+	maxTimeout = 5 * time.Second // max wait time in seconds for M-SEARCH responses
 
 	maxRespSize = 4096 // max size of M-SEARCH response
 	chanBufSize = 10   // buffer size of the channel used to return discovered services
 )
 
-var (
-	LogVerbose = false // enable verbose logging
-)
-
 // Service represents a service discovered on the network through an M-SEARCH.
-type Service struct {
+type ssdpService struct {
 	UniqueServiceName string      // composite unique service identifier
 	Location          string      // URL to the UPnP description of the root device
 	SearchTarget      string      // single URI, depends on the ST header sent in the M-SEARCH request
@@ -36,7 +32,7 @@ type Service struct {
 
 // Search discovers services on the network. It sends an M-SEARCH request and
 // waits in a goroutine for responses.
-func Search(searchTarget string, timeout int) (chan *Service, error) {
+func Search(searchTarget string, timeout time.Duration) (chan *ssdpService, error) {
 	timeout = clamp(timeout, minTimeout, maxTimeout)
 
 	laddr, err := sendMSearchReq(searchTarget, timeout)
@@ -50,29 +46,23 @@ func Search(searchTarget string, timeout int) (chan *Service, error) {
 		return nil, err
 	}
 
-	conn.SetReadDeadline(time.Now().Add(time.Duration(timeout) * time.Second))
-	ch := make(chan *Service, chanBufSize)
+	conn.SetReadDeadline(time.Now().Add(timeout))
+	ch := make(chan *ssdpService, chanBufSize)
 	go listenMSearchResp(conn, ch)
 	return ch, nil
 }
 
-func logVerbosef(format string, args ...interface{}) {
-	if LogVerbose {
-		log.Printf(format, args...)
-	}
-}
-
-func clamp(n, min, max int) int {
-	if n < min {
+func clamp(d, min, max time.Duration) time.Duration {
+	if d < min {
 		return min
 	}
-	if n > max {
+	if d > max {
 		return max
 	}
-	return n
+	return d
 }
 
-func sendMSearchReq(searchTarget string, timeout int) (*net.UDPAddr, error) {
+func sendMSearchReq(searchTarget string, timeout time.Duration) (*net.UDPAddr, error) {
 	conn, err := net.Dial("udp", multicastAddr)
 	if err != nil {
 		return nil, err
@@ -82,7 +72,7 @@ func sendMSearchReq(searchTarget string, timeout int) (*net.UDPAddr, error) {
 	buf := bytes.NewBufferString("M-SEARCH * HTTP/1.1\r\n")
 	fmt.Fprintf(buf, "HOST: %s\r\n", multicastAddr)
 	fmt.Fprintf(buf, "MAN: %q\r\n", "ssdp:discover") // must be quoted
-	fmt.Fprintf(buf, "MX: %d\r\n", timeout)
+	fmt.Fprintf(buf, "MX: %d\r\n", timeout/time.Second)
 	fmt.Fprintf(buf, "ST: %s\r\n", searchTarget)
 	// TODO user agent header
 	buf.WriteString("\r\n")
@@ -95,7 +85,7 @@ func sendMSearchReq(searchTarget string, timeout int) (*net.UDPAddr, error) {
 	return conn.LocalAddr().(*net.UDPAddr), nil
 }
 
-func listenMSearchResp(conn *net.UDPConn, ch chan *Service) {
+func listenMSearchResp(conn *net.UDPConn, ch chan *ssdpService) {
 	defer conn.Close()
 	defer close(ch)
 
@@ -121,7 +111,7 @@ func listenMSearchResp(conn *net.UDPConn, ch chan *Service) {
 	}
 }
 
-func parseMSearchResp(buf []byte) (*Service, error) {
+func parseMSearchResp(buf []byte) (*ssdpService, error) {
 	resp, err := http.ReadResponse(bufio.NewReader(bytes.NewBuffer(buf)), nil)
 	if err != nil {
 		return nil, err
@@ -132,7 +122,7 @@ func parseMSearchResp(buf []byte) (*Service, error) {
 		return nil, fmt.Errorf("invalid M-SEARCH response line: status code != 200")
 	}
 
-	service := &Service{Headers: resp.Header}
+	service := &ssdpService{Headers: resp.Header}
 
 	if service.UniqueServiceName = service.Headers.Get("USN"); service.UniqueServiceName == "" {
 		return nil, fmt.Errorf("missing USN header")
