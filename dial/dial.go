@@ -61,7 +61,7 @@ type Wakeup struct {
 // Discover discovers unique DIAL server devices on the network. timeout is used
 // to wait for the underlying SSDP M-SEARCH responses.
 func Discover(timeout time.Duration) (chan *Device, error) {
-	ssdpCh, err := Search(dialSearchTarget, timeout)
+	ssdpCh, err := mSearch(dialSearchTarget, timeout)
 	if err != nil {
 		return nil, err
 	}
@@ -73,10 +73,10 @@ func Discover(timeout time.Duration) (chan *Device, error) {
 		defer wg.Done()
 		seen := make(map[string]bool)
 		for service := range ssdpCh {
-			if service.SearchTarget != dialSearchTarget || seen[service.UniqueServiceName] {
+			if service.searchTarget != dialSearchTarget || seen[service.uniqueServiceName] {
 				continue
 			}
-			seen[service.UniqueServiceName] = true
+			seen[service.uniqueServiceName] = true
 			wg.Add(1)
 			go getDeviceDesc(service, &wg, devCh)
 		}
@@ -99,17 +99,17 @@ func logVerbosef(format string, args ...interface{}) {
 func getDeviceDesc(service *ssdpService, wg *sync.WaitGroup, ch chan *Device) {
 	defer wg.Done()
 
-	logVerbosef("sending GET %s", service.Location)
-	resp, err := http.Get(service.Location)
+	logVerbosef("sending GET %s", service.location)
+	resp, err := http.Get(service.location)
 	if err != nil {
-		logVerbosef("GET %s: %s", service.Location, err)
+		logVerbosef("GET %s: %s", service.location, err)
 		return
 	}
 	defer resp.Body.Close()
 
 	dev, err := parseDevice(service, resp)
 	if err != nil {
-		logVerbosef("GET %s: %s", service.Location, err)
+		logVerbosef("GET %s: %s", service.location, err)
 		return
 	}
 	logVerbosef("discovered device %#v", dev)
@@ -141,11 +141,11 @@ func parseDevice(service *ssdpService, resp *http.Response) (*Device, error) {
 	}
 
 	dev := &Device{
-		UniqueServiceName: service.UniqueServiceName,
-		Location:          service.Location,
+		UniqueServiceName: service.uniqueServiceName,
+		Location:          service.location,
 		ApplicationUrl:    appUrl,
 		FriendlyName:      desc.FriendlyName,
-		Wakeup:            parseWakeup(service.Headers.Get("WAKEUP")),
+		Wakeup:            parseWakeup(service.headers.Get("WAKEUP")),
 	}
 	return dev, nil
 }

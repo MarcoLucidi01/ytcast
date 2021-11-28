@@ -14,10 +14,10 @@ func TestParseDeviceGood(t *testing.T) {
 	mac := "10:dd:b1:c9:00:e4"
 	timeout := 60
 	service := &ssdpService{
-		UniqueServiceName: "device-UUID",
-		Location:          "http://192.168.1.1:52235/dd.xml",
-		SearchTarget:      "urn:dial-multiscreen-org:service:dial:1",
-		Headers: map[string][]string{
+		uniqueServiceName: "device-UUID",
+		location:          "http://192.168.1.1:52235/dd.xml",
+		searchTarget:      "urn:dial-multiscreen-org:service:dial:1",
+		headers: map[string][]string{
 			"Server": []string{"OS/version UPnP/1.1 product/version"},
 			"Wakeup": []string{"MAC=" + mac + ";Timeout=" + strconv.Itoa(timeout)},
 		},
@@ -59,8 +59,8 @@ func TestParseDeviceGood(t *testing.T) {
 
 	dev, err := parseDevice(service, resp)
 	failIfNotNil(t, err)
-	failIfNotEqualS(t, "dev.UniqueServiceName", service.UniqueServiceName, dev.UniqueServiceName)
-	failIfNotEqualS(t, "dev.Location", service.Location, dev.Location)
+	failIfNotEqualS(t, "dev.UniqueServiceName", service.uniqueServiceName, dev.UniqueServiceName)
+	failIfNotEqualS(t, "dev.Location", service.location, dev.Location)
 	failIfNotEqualS(t, "dev.ApplicationUrl", appUrl, dev.ApplicationUrl)
 	failIfNotEqualS(t, "dev.FriendlyName", friendlyName, dev.FriendlyName)
 	failIfNotEqualS(t, "dev.Wakeup.Mac", mac, dev.Wakeup.Mac)
