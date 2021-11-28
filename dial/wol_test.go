@@ -1,19 +1,20 @@
 package dial
 
 import (
-	"fmt"
 	"net"
 	"testing"
 )
 
-func TestWakeup(t *testing.T) {
+func TestWakeOnLan(t *testing.T) {
 	mac := "" // put your target MAC here
 	baddr := "255.255.255.255:9"
 
-	if len(mac) == 0 {
+	if mac == "" {
 		t.SkipNow()
 	}
-	failIfNotNil(t, wakeOnLan(mac, baddr))
+	if err := wakeOnLan(mac, baddr); err != nil {
+		t.Fatalf("unexpected error: %s", err)
+	}
 }
 
 func TestMakeMagicPacket(t *testing.T) {
@@ -29,26 +30,26 @@ func TestMakeMagicPacket(t *testing.T) {
 		"ec:e7:e3:c2:1d:6e",
 		"56:53:57:28:6f:6c",
 	}
-	for _, mac := range macs {
-		addr, err := net.ParseMAC(mac)
-		failIfNotNil(t, err)
 
-		magic := makeMagicPacket(addr)
-		var i int
-		for i = 0; i < 6; i++ {
-			failIfNotEqualByte(t, fmt.Sprintf("magic[%d]", i), 0xff, magic[i])
+	for i, mac := range macs {
+		addr, err := net.ParseMAC(mac)
+		if err != nil {
+			t.Fatalf("%d: unexpected error: %s", i, err)
 		}
-		for j := 0; j < 16; j++ {
-			for k := 0; k < len(addr); k, i = k+1, i+1 {
-				prefix := fmt.Sprintf("magic[%d] != addr[%d]", i, k)
-				failIfNotEqualByte(t, prefix, addr[k], magic[i])
+		magic := makeMagicPacket(addr)
+		var j int
+		for j = 0; j < 6; j++ {
+			if magic[j] != 0xff {
+				t.Fatalf("%d: magic[%d]: want 0xff got 0x%02x", i, j, magic[j])
 			}
 		}
-	}
-}
-
-func failIfNotEqualByte(t *testing.T, prefix string, want, got byte) {
-	if want != got {
-		t.Fatalf("%s: want 0x%02x got 0x%02x", prefix, want, got)
+		for k := 0; k < 16; k++ {
+			for z := 0; z < len(addr); z, j = z+1, j+1 {
+				if magic[j] != addr[z] {
+					f := "%d: %q: magic[%d] != addr[%d]: want 0x%02x got 0x%02x"
+					t.Fatalf(f, i, mac, j, z, addr[z], magic[j])
+				}
+			}
+		}
 	}
 }
