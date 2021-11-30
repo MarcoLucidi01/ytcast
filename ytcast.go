@@ -38,7 +38,7 @@ type cacheEntry struct {
 var (
 	errCanceled        = errors.New("canceled")
 	errUnknownAppState = errors.New("unknown app state")
-	errNoLaunch        = fmt.Errorf("unable to launch %s app and get screenId", youtube.DialAppName)
+	errNoLaunch        = errors.New("unable to launch app and get screenId")
 
 	flagVerbose = flag.Bool("verbose", false, "enable verbose logging")
 )
@@ -72,8 +72,11 @@ func run() error {
 	if err != nil {
 		return err
 	}
-	if err := entry.Device.WakeupFunc(); err != nil {
-		return err
+	if entry.cached && !entry.Device.Ping() {
+		log.Printf("%q is not awake, trying waking it up...", entry.Device.FriendlyName)
+		if err := entry.Device.TryWakeup(); err != nil {
+			return fmt.Errorf("%q: TryWakeup: %w", entry.Device.FriendlyName, err)
+		}
 	}
 	screenId, err := launchYouTubeApp(entry)
 	if err != nil {
@@ -169,7 +172,7 @@ func selectDevice(cache *[]*cacheEntry) (*cacheEntry, error) {
 func discoverDevices(cache *[]*cacheEntry, timeout time.Duration) error {
 	devCh, err := dial.Discover(timeout)
 	if err != nil {
-		return err
+		return fmt.Errorf("Discover: %w", err)
 	}
 
 	// make a map to easily find devices for cache update
@@ -276,14 +279,17 @@ func askWhichDevice(cache []*cacheEntry) (*cacheEntry, error) {
 }
 
 func launchYouTubeApp(entry *cacheEntry) (string, error) {
+	appName := youtube.DialAppName
+	devName := entry.Device.FriendlyName
 	for start := time.Now(); time.Since(start) < launchTimeout; time.Sleep(launchCheckInterval) {
-		app, err := entry.Device.GetAppInfo(youtube.DialAppName, youtube.Origin)
+		app, err := entry.Device.GetAppInfo(appName, youtube.Origin)
 		if err != nil {
-			return "", err
+			return "", fmt.Errorf("%q: GetAppInfo: %q: %w", devName, appName, err)
 		}
+
+		log.Printf("%q is %s on %q", appName, app.State, devName)
 		switch app.State {
 		case "running":
-			log.Printf("%s app is running on %q", youtube.DialAppName, entry.Device.UniqueServiceName)
 			screenId, err := extractScreenId(app.Additional.Data)
 			if err != nil {
 				return "", err
@@ -291,16 +297,19 @@ func launchYouTubeApp(entry *cacheEntry) (string, error) {
 			if screenId != "" {
 				return screenId, nil
 			}
-			log.Println("screenId still not available")
+			log.Println("screenId not available")
+
 		case "stopped", "hidden":
-			if _, err := entry.Device.Launch(youtube.DialAppName, youtube.Origin, ""); err != nil {
-				return "", err
+			log.Printf("launching %q on %q", appName, devName)
+			if _, err := entry.Device.Launch(appName, youtube.Origin, ""); err != nil {
+				return "", fmt.Errorf("%q: Launch: %q: %w", devName, appName, err)
 			}
+
 		default:
-			return "", fmt.Errorf("%s app: %s: %w", youtube.DialAppName, app.State, errUnknownAppState)
+			return "", fmt.Errorf("%q: %q: %q: %w", devName, appName, app.State, errUnknownAppState)
 		}
 	}
-	return "", errNoLaunch
+	return "", fmt.Errorf("%q: %q: %w", devName, appName, errNoLaunch)
 }
 
 func extractScreenId(data string) (string, error) {
@@ -323,16 +332,21 @@ func playVideos(entry *cacheEntry, screenId string, videoIds []string) error {
 		if remote != nil {
 			log.Println("unable to reuse cached YouTube Lounge session")
 		}
+		log.Printf("connecting to %q via YouTube Lounge", entry.Device.FriendlyName)
 		var err error
 		if remote, err = youtube.Connect(screenId, progName); err != nil {
-			return err
+			return fmt.Errorf("Connect: %w", err)
 		}
 		entry.Remote = remote
 	}
 	for i, v := range videoIds {
 		videoIds[i] = extractVideoId(v)
 	}
-	return remote.Play(videoIds...)
+	log.Printf("requesting YouTube Lounge to play %v on %q", videoIds, entry.Device.FriendlyName)
+	if err := remote.Play(videoIds...); err != nil {
+		return fmt.Errorf("Play: %w", err)
+	}
+	return nil
 }
 
 func extractVideoId(v string) string {

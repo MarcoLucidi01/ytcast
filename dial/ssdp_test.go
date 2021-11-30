@@ -5,7 +5,7 @@ import (
 )
 
 func TestParseMSearchResp(t *testing.T) {
-	var tests = []struct {
+	tests := []struct {
 		resp    []byte
 		mustErr bool
 		service *ssdpService

@@ -1,7 +1,7 @@
-package dial
-
 // This file implements the SSDP (Simple Service Discovery Protocol) portion
 // used by the DIAL protocol (i.e. the M-SEARCH request).
+
+package dial
 
 import (
 	"bufio"
@@ -25,10 +25,10 @@ const (
 )
 
 var (
-	errBadStatus  = errors.New("invalid response status")
-	errNoUSN      = errors.New("missing USN header")
-	errNoLocation = errors.New("missing LOCATION header")
-	errNoST       = errors.New("missing ST header")
+	errBadHttpStatus = errors.New("bad HTTP response status")
+	errNoUSN         = errors.New("missing USN header")
+	errNoLocation    = errors.New("missing LOCATION header")
+	errNoST          = errors.New("missing ST header")
 )
 
 // ssdpService is a network service discovered with an SSDP M-SEARCH request.
@@ -47,13 +47,11 @@ func mSearch(searchTarget string, timeout time.Duration) (chan *ssdpService, err
 	if err != nil {
 		return nil, err
 	}
-
 	conn, err := net.ListenUDP("udp", laddr)
 	if err != nil {
 		return nil, err
 	}
 	conn.SetReadDeadline(time.Now().Add(timeout))
-	log.Printf("waiting M-SEARCH responses on udp %s timeout %s", laddr, timeout)
 
 	ch := make(chan *ssdpService, msChanBufSize)
 	go func() {
@@ -69,7 +67,7 @@ func mSearch(searchTarget string, timeout time.Duration) (chan *ssdpService, err
 			}
 			service, err := parseMSearchResp(buf)
 			if err != nil {
-				log.Printf("error parsing M-SEARCH response from udp %s: %s", raddr, err)
+				log.Printf("parseMSearchResp udp %s: %s", raddr, err)
 				continue
 			}
 			log.Printf("discovered service %s", service.location)
@@ -90,7 +88,7 @@ func clamp(d, min, max time.Duration) time.Duration {
 }
 
 func sendMSearchReq(searchTarget string, timeout time.Duration) (*net.UDPAddr, error) {
-	log.Printf("sending M-SEARCH request to udp %s ST %q", ssdpMulticastAddr, searchTarget)
+	log.Printf("M-SEARCH udp %s ST %q timeout %s", ssdpMulticastAddr, searchTarget, timeout)
 
 	req := bytes.NewBufferString("M-SEARCH * HTTP/1.1\r\n")
 	fmt.Fprintf(req, "HOST: %s\r\n", ssdpMulticastAddr)
@@ -119,7 +117,7 @@ func parseMSearchResp(data []byte) (*ssdpService, error) {
 	defer resp.Body.Close()
 
 	if resp.StatusCode != 200 {
-		return nil, fmt.Errorf("%w: %s", errBadStatus, resp.Status)
+		return nil, fmt.Errorf("%s: %w", resp.Status, errBadHttpStatus)
 	}
 
 	service := &ssdpService{headers: resp.Header}

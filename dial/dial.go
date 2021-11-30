@@ -1,5 +1,5 @@
-// Package dial implements basic functionality of the DIscovery And Launch
-// protocol http://www.dial-multiscreen.org/
+// Package dial implements a basic DIAL (DIscovery And Launch) client.
+// See http://www.dial-multiscreen.org/
 package dial
 
 import (
@@ -9,7 +9,9 @@ import (
 	"io/ioutil"
 	"log"
 	"net/http"
+	"net/url"
 	"path"
+	"regexp"
 	"strconv"
 	"strings"
 	"sync"
@@ -17,49 +19,79 @@ import (
 )
 
 const (
-	// SSDP search target for DIAL devices
 	dialSearchTarget = "urn:dial-multiscreen-org:service:dial:1"
 
-	// buffer size of the channel used to return discovered devices
 	devChanBufSize = 10
 
-	wakeupBroadcastAddress = "255.255.255.255:9"
-	wakeupMinTimeout       = 10 * time.Second
-	wakeupMaxTimeout       = 150 * time.Second
-	wakeupCheckInterval    = 2 * time.Second
+	wakeupBroadcastAddr = "255.255.255.255:9"
+	wakeupMinTimeout    = 10 * time.Second
+	wakeupMaxTimeout    = 2 * time.Minute
+	wakeupCheckInterval = 2 * time.Second
 )
 
 var (
-	LogVerbose = false // enable verbose logging
+	wakeupParseRe = regexp.MustCompile(`MAC=(.+);Timeout=(\d+)`)
 
-	errNoMac = errors.New("missing device MAC address")
+	errNoAppUrl = errors.New("missing Application-URL header")
+	errNoMac    = errors.New("missing device MAC address")
+	errNoWakeup = errors.New("unable to wakeup device")
 )
 
-// Device represents a DIAL server device discovered on the network. Contains
-// information from both ssdpService and device description response from the
-// service Location.
+// Device is a DIAL server device discovered on the network.
 type Device struct {
-	UniqueServiceName string // UniqueServiceName from the ssdpService
-	Location          string // Location from the ssdpService
-	ApplicationUrl    string // absolute HTTP URL, identifies the base DIAL REST service
-	FriendlyName      string // UPnP friendlyName field of the device description response
-	Wakeup            Wakeup // WAKEUP header values from the ssdpService (optional)
+	UniqueServiceName string // UniqueServiceName from the ssdpService.
+	Location          string // Location from the ssdpService.
+	ApplicationUrl    string // base DIAL REST service url.
+	FriendlyName      string // UPnP friendlyName field of the device description.
+	Wakeup            Wakeup // WAKEUP header values from the ssdpService (if available).
 }
 
-// Wakeup contains values of WAKEUP header from the ssdpService (i.e. an
-// M-SEARCH response) that could be used to WoL or WoWLAN the Device.
+// Wakeup contains values of WAKEUP header from the ssdpService that can be used
+// to WoL or WoWLAN the device.
 type Wakeup struct {
-	// MAC address of the first-screen device's wired or wireless network
-	// interface that is currently in use.
-	Mac string
-
-	// estimated upper bound of the duration in seconds of the time needed
-	// to wake the DIAL server device and then start its DIAL server.
-	Timeout int
+	Mac     string        // MAC address of the device's wired or wireless network interface.
+	Timeout time.Duration // estimated upper bound of the duration needed to wake the device and start its DIAL server.
 }
 
-// Discover discovers unique DIAL server devices on the network. timeout is used
-// to wait for the underlying SSDP M-SEARCH responses.
+// AppInfo contains information about an application on a specific Device.
+type AppInfo struct {
+	Name string `xml:"name"`
+
+	// State valid values are:
+	// - running: the application is installed and either starting or running;
+	// - stopped: the application is installed and not running;
+	// - installable=<URL>: the application is not installed but is
+	//   available for installation by sending an HTTP GET request to the
+	//   provided URL;
+	// - hidden: the application is running but is not visible to the user;
+	//
+	// any other value is invalid and should be ignored.
+	State string `xml:"state"`
+
+	Options struct {
+		// AllowStop true indicates that the application can be stopped
+		// (if running) sending an HTTP DELETE request to Link.Href.
+		AllowStop bool `xml:"allowStop,attr"`
+	} `xml:"options"`
+
+	// Link is included when the application is running and can be stopped
+	// using a DELETE request.
+	Link struct {
+		// Rel is always "run".
+		Rel string `xml:"rel,attr"`
+
+		// Href contains instance URL of the running application.
+		Href string `xml:"href,attr"`
+	} `xml:"link"`
+
+	Additional struct {
+		// Additional.Data contains zero or more (dynamic) XML elements
+		// specific to the application.
+		Data string `xml:",innerxml"`
+	} `xml:"additionalData"`
+}
+
+// Discover discovers (unique) DIAL server devices on the network.
 func Discover(timeout time.Duration) (chan *Device, error) {
 	ssdpCh, err := mSearch(dialSearchTarget, timeout)
 	if err != nil {
@@ -78,7 +110,21 @@ func Discover(timeout time.Duration) (chan *Device, error) {
 			}
 			seen[service.uniqueServiceName] = true
 			wg.Add(1)
-			go getDeviceDesc(service, &wg, devCh)
+			go func(service *ssdpService) {
+				defer wg.Done()
+				respBody, headers, err := doReq("GET", service.location, "", "")
+				if err != nil {
+					log.Println(err)
+					return
+				}
+				dev, err := parseDevice(service, respBody, headers)
+				if err != nil {
+					log.Printf("%s: parseDevice: %s", service.location, err)
+					return
+				}
+				log.Printf("discovered DIAL device %q", dev.FriendlyName)
+				devCh <- dev
+			}(service)
 		}
 	}()
 
@@ -90,53 +136,41 @@ func Discover(timeout time.Duration) (chan *Device, error) {
 	return devCh, nil
 }
 
-func logVerbosef(format string, args ...interface{}) {
-	if LogVerbose {
-		log.Printf(format, args...)
-	}
-}
-
-func getDeviceDesc(service *ssdpService, wg *sync.WaitGroup, ch chan *Device) {
-	defer wg.Done()
-
-	logVerbosef("sending GET %s", service.location)
-	resp, err := http.Get(service.location)
+func doReq(method, url string, origin, body string) ([]byte, http.Header, error) {
+	req, err := http.NewRequest(method, url, strings.NewReader(body))
 	if err != nil {
-		logVerbosef("GET %s: %s", service.location, err)
-		return
+		return nil, nil, err
+	}
+	if origin != "" {
+		req.Header.Set("Origin", origin)
+	}
+	if body != "" {
+		req.Header.Set("Content-Type", "text/plain; charset=utf-8")
+	}
+
+	log.Printf("%s %s", req.Method, req.URL)
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		return nil, nil, err
 	}
 	defer resp.Body.Close()
-
-	dev, err := parseDevice(service, resp)
-	if err != nil {
-		logVerbosef("GET %s: %s", service.location, err)
-		return
+	respBody, err := ioutil.ReadAll(resp.Body)
+	if err == nil && (resp.StatusCode < 200 || resp.StatusCode > 299) {
+		err = fmt.Errorf("%s %s: %s: %w", req.Method, req.URL, resp.Status, errBadHttpStatus)
 	}
-	logVerbosef("discovered device %#v", dev)
-	ch <- dev
+	return respBody, resp.Header, err
 }
 
-// parseDevice builds a Device struct joining values from service and device
-// description response from service.Location.
-func parseDevice(service *ssdpService, resp *http.Response) (*Device, error) {
-	if resp.StatusCode != 200 {
-		return nil, fmt.Errorf("%s", resp.Status)
+func parseDevice(service *ssdpService, desc []byte, descHeaders http.Header) (*Device, error) {
+	appUrl := strings.TrimSpace(descHeaders.Get("Application-URL"))
+	if appUrl == "" {
+		return nil, errNoAppUrl
 	}
 
-	appUrl := strings.TrimSpace(resp.Header.Get("Application-URL"))
-	if len(appUrl) == 0 {
-		return nil, fmt.Errorf("missing Application-URL header")
-	}
-
-	respBody, err := ioutil.ReadAll(resp.Body)
-	if err != nil {
-		return nil, err
-	}
-
-	var desc struct {
+	var v struct {
 		FriendlyName string `xml:"device>friendlyName"`
 	}
-	if err := xml.Unmarshal(respBody, &desc); err != nil {
+	if err := xml.Unmarshal(desc, &v); err != nil {
 		return nil, err
 	}
 
@@ -144,105 +178,37 @@ func parseDevice(service *ssdpService, resp *http.Response) (*Device, error) {
 		UniqueServiceName: service.uniqueServiceName,
 		Location:          service.location,
 		ApplicationUrl:    appUrl,
-		FriendlyName:      desc.FriendlyName,
+		FriendlyName:      v.FriendlyName,
 		Wakeup:            parseWakeup(service.headers.Get("WAKEUP")),
 	}
 	return dev, nil
 }
 
-// parseWakeup parses a WAKEUP SSDP header value e.g. MAC=10:dd:b1:c9:00:e4;Timeout=10
-func parseWakeup(value string) Wakeup {
-	fields := strings.FieldsFunc(value, func(r rune) bool { return r == ';' || r == '=' })
-	if len(fields) != 4 {
+func parseWakeup(v string) Wakeup {
+	if v == "" {
 		return Wakeup{}
 	}
-
-	for i := 0; i < len(fields); i++ {
-		fields[i] = strings.TrimSpace(fields[i])
-		if len(fields[i]) == 0 {
-			return Wakeup{}
-		}
-	}
-
-	if !strings.EqualFold(fields[0], "MAC") {
+	fields := wakeupParseRe.FindStringSubmatch(v)
+	if len(fields) != 3 {
 		return Wakeup{}
 	}
 	mac := fields[1]
-
-	if !strings.EqualFold(fields[2], "Timeout") {
-		return Wakeup{}
-	}
-	timeout, err := strconv.Atoi(fields[3])
+	timeout, err := strconv.Atoi(fields[2])
 	if err != nil || timeout < 0 {
 		return Wakeup{}
 	}
-
-	return Wakeup{Mac: mac, Timeout: timeout}
+	return Wakeup{Mac: mac, Timeout: time.Duration(timeout) * time.Second}
 }
 
-// AppInfo contains information about an application on a specific device.
-type AppInfo struct {
-	// Name is the application name
-	Name string `xml:"name"`
-
-	// State valid values are:
-	// - running: the application is installed and either starting or running;
-	// - stopped: the application is installed and not running;
-	// - installable=<URL>: the application is not installed but is
-	//   available for installation by sending an HTTP GET request to the
-	//   provided URL;
-	// - hidden: the application is running but is not visible to the user;
-	//
-	// any other value is invalid and should be ignored
-	State string `xml:"state"`
-
-	Options struct {
-		// AllowStop true indicates that the application can be stopped
-		// (if running) using an HTTP DELETE request
-		AllowStop bool `xml:"allowStop,attr"`
-	} `xml:"options"`
-
-	// Link is included when the application is running and can be stopped
-	// using a DELETE request.
-	Link struct {
-		// Rel is always "run".
-		Rel string `xml:"rel,attr"`
-
-		// Href contains the resource name of the running application
-		// and should match the last portion of the name returned in the
-		// 201 CREATED response.
-		Href string `xml:"href,attr"`
-	} `xml:"link"`
-
-	Additional struct {
-		// Additional.Data contains zero or more (dynamic) elements
-		// specific to the application and are returned as unparsed XML.
-		Data string `xml:",innerxml"`
-	} `xml:"additionalData"`
-}
-
-// GetAppInfo obtains information about an application on a Device.
+// GetAppInfo returns information about an application on the Device.
 // appName should be an application name registered in the DIAL Registry.
-// If origin is not empty, it will be passed as Origin HTTP header.
-// Any response code != 200 from the server will be returned as an error.
-func (d *Device) GetAppInfo(appName string, origin string) (*AppInfo, error) {
-	req, err := makeReq("GET", d.ApplicationUrl, appName, origin, "")
+// origin (if present) will be passed as Origin HTTP header.
+func (d *Device) GetAppInfo(appName, origin string) (*AppInfo, error) {
+	u, err := urlJoin(d.ApplicationUrl, appName)
 	if err != nil {
 		return nil, err
 	}
-
-	logVerbosef("%s %s", req.Method, req.URL)
-	resp, err := http.DefaultClient.Do(req)
-	if err != nil {
-		return nil, err
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode != 200 {
-		return nil, errors.New(resp.Status)
-	}
-
-	respBody, err := ioutil.ReadAll(resp.Body)
+	respBody, _, err := doReq("GET", u, origin, "")
 	if err != nil {
 		return nil, err
 	}
@@ -250,81 +216,60 @@ func (d *Device) GetAppInfo(appName string, origin string) (*AppInfo, error) {
 	if err := xml.Unmarshal(respBody, &appInfo); err != nil {
 		return nil, err
 	}
-	logVerbosef("application %q info %#v", appName, appInfo)
 	return &appInfo, nil
 }
 
-func makeReq(method, baseUrl, appName, origin, payload string) (*http.Request, error) {
-	req, err := http.NewRequest(method, baseUrl, strings.NewReader(payload))
+func urlJoin(base, end string) (string, error) {
+	u, err := url.Parse(base)
 	if err != nil {
-		return nil, err
+		return "", err
 	}
-	req.URL.Path = path.Join(req.URL.Path, appName)
-	if len(origin) > 0 {
-		req.Header.Set("Origin", origin)
-	}
-	if len(payload) > 0 {
-		req.Header.Set("Content-Type", "text/plain; charset=utf-8")
-	}
-	return req, nil
+	u.Path = path.Join(u.Path, end)
+	return u.String(), nil
 }
 
-// Launch launches an application on a Device.
+// Launch launches (starts) an application on the Device and returns its
+// instance url (if available).
 // appName should be an application name registered in the DIAL Registry.
-// If origin is not empty, it will be passed as Origin HTTP header.
-// If payload is not empty, it will be passed as HTTP message body with
-// Content-Type: text/plain; charset=utf-8.
-// Any non-successful response code (< 200 or > 299) from the server will
-// be returned as an error.
-// If present, the value of the Location response header will be returned by
-// this method, it represents the Application Instance URL.
+// origin (if present) will be passed as Origin HTTP header.
+// payload (if present) will be passed as HTTP message body with
+// Content-Type: text/plain; charset=utf-8 header.
 func (d *Device) Launch(appName, origin, payload string) (string, error) {
-	req, err := makeReq("POST", d.ApplicationUrl, appName, origin, payload)
+	u, err := urlJoin(d.ApplicationUrl, appName)
 	if err != nil {
 		return "", err
 	}
-
-	logVerbosef("%s %s", req.Method, req.URL)
-	resp, err := http.DefaultClient.Do(req)
+	_, headers, err := doReq("POST", u, origin, payload)
 	if err != nil {
 		return "", err
 	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode < 200 || resp.StatusCode > 299 {
-		return "", errors.New(resp.Status)
-	}
-
-	appInstanceUrl := resp.Header.Get("Location")
-	logVerbosef("application %q successfully launched, instance URL %s", appName, appInstanceUrl)
-	return appInstanceUrl, nil
+	return headers.Get("Location"), nil
 }
 
-// TODO add logging
-// TODO add doc
-// TODO fix function name
-// TODO use common request builder
-func (d *Device) WakeupFunc() error {
-	if _, err := http.Get(d.ApplicationUrl); err == nil {
-		return nil // device is already up
-	}
-
-	if len(d.Wakeup.Mac) == 0 {
+// TryWakeup tries to wake-on-lan the Device sending a magic packet to its MAC
+// address and waiting for it to become available.
+// Returns nil if it successfully wakes up the Device.
+func (d *Device) TryWakeup() error {
+	if d.Wakeup.Mac == "" {
 		return errNoMac
 	}
-	if err := wakeOnLan(d.Wakeup.Mac, wakeupBroadcastAddress); err != nil {
+	if err := wakeOnLan(d.Wakeup.Mac, wakeupBroadcastAddr); err != nil {
 		return err
 	}
-
-	timeout := time.Duration(d.Wakeup.Timeout) * time.Second
-	timeout = clamp(timeout, wakeupMinTimeout, wakeupMaxTimeout)
-	for start := time.Now(); time.Since(start) < timeout; {
-		time.Sleep(wakeupCheckInterval)
-		if _, err := http.Get(d.ApplicationUrl); err == nil {
+	timeout := clamp(d.Wakeup.Timeout, wakeupMinTimeout, wakeupMaxTimeout)
+	for start := time.Now(); time.Since(start) < timeout; time.Sleep(wakeupCheckInterval) {
+		if d.Ping() {
 			return nil
 		}
 	}
+	return errNoWakeup
+}
 
-	_, err := http.Get(d.ApplicationUrl)
-	return err
+// Ping checks if the Device is up and returns true if it is.
+func (d *Device) Ping() bool {
+	_, _, err := doReq("GET", d.Location, "", "")
+	if err != nil && errors.Is(err, errBadHttpStatus) {
+		err = nil
+	}
+	return err == nil
 }
