@@ -1,7 +1,6 @@
 package youtube
 
 import (
-	"strconv"
 	"testing"
 )
 
@@ -9,19 +8,26 @@ func TestConnectAndPlay(t *testing.T) {
 	screenId := "" // put your screenId here
 	videoIds := []string{"dQw4w9WgXcQ", "7BqJ8dzygtU", "EY6q5dv_B-o"}
 
-	if len(screenId) == 0 {
+	if screenId == "" {
 		t.SkipNow()
 	}
-	r, err := Connect(screenId, "ytcast")
-	failIfNotNil(t, err)
-	err = r.Play(videoIds...)
-	failIfNotNil(t, err)
+	r, err := Connect(screenId, "TestConnectAndPlay")
+	if err != nil {
+		t.Fatalf("unexpected error: %s", err)
+	}
+	if err := r.Play(videoIds...); err != nil {
+		t.Fatalf("unexpected error: %s", err)
+	}
 }
 
 func TestExtractLoungeToken(t *testing.T) {
-	loungeToken := "lounge-token-foo-bar-baz"
-	expiration := int64(1637512182177)
-	data := []byte(`
+	tests := []struct {
+		data        []byte
+		loungeToken string
+		expiration  int64
+	}{
+		{
+			data: []byte(`
 {
   "screens": [
     {
@@ -30,50 +36,62 @@ func TestExtractLoungeToken(t *testing.T) {
       "remoteRefreshIntervalMs": 79200000,
       "refreshIntervalMs": 1123200000,
       "loungeTokenLifespanMs": 1209600000,
-      "loungeToken": "` + loungeToken + `",
+      "loungeToken": "lounge-token-foo-bar-baz",
       "remoteRefreshIntervalInMillis": 79200000,
-      "expiration": ` + strconv.FormatInt(expiration, 10) + `
+      "expiration": 1637512182177
     }
   ]
-}`)
-	tok, exp, err := extractLoungeToken(data)
-	failIfNotNil(t, err)
-	failIfNotEqualS(t, "loungeToken", loungeToken, tok)
-	failIfNotEqualI64(t, "expiration", expiration, exp)
+}`),
+			loungeToken: "lounge-token-foo-bar-baz",
+			expiration:  int64(1637512182177),
+		},
+	}
+
+	for i, test := range tests {
+		loungeToken, expiration, err := extractLoungeToken(test.data)
+		if err != nil {
+			t.Fatalf("tests[%d]: unexpected error: %s", i, err)
+		}
+		if test.loungeToken != loungeToken {
+			t.Fatalf("tests[%d]: loungeToken: want %q got %q", i, test.loungeToken, loungeToken)
+		}
+		if test.expiration != expiration {
+			t.Fatalf("tests[%d]: expiration: want %d got %d", i, test.expiration, expiration)
+		}
+	}
 }
 
 func TestExtractSessionIds(t *testing.T) {
-	sId := "sid-foo-bar-baz"
-	gsessionId := "gsessionid-foo-bar-baz"
-	data := []byte(`
+	tests := []struct {
+		data       []byte
+		sId        string
+		gSessionId string
+	}{
+		{
+			data: []byte(`
 270
-[[0,["c","` + sId + `","",8]]
-,[1,["S","` + gsessionId + `"]]
+[[0,["c","sid-foo-bar-baz","",8]]
+,[1,["S","gsessionid-foo-bar-baz"]]
 ,[2,["loungeStatus",{}]]
 ,[3,["playlistModified",{}]]
 ,[4,["onAutoplayModeChanged",{"autoplayMode":"UNSUPPORTED"}]]
 ,[5,["onPlaylistModeChanged",{"shuffleEnabled":"false","loopEnabled":"false"}]]
-]`)
-	gotSId, gotGsessionId, err := extractSessionIds(data)
-	failIfNotNil(t, err)
-	failIfNotEqualS(t, "sId", sId, gotSId)
-	failIfNotEqualS(t, "gsessionId", gsessionId, gotGsessionId)
-}
-
-func failIfNotNil(t *testing.T, err error) {
-	if err != nil {
-		t.Fatalf("got unexpected error: %s", err)
+]`),
+			sId:        "sid-foo-bar-baz",
+			gSessionId: "gsessionid-foo-bar-baz",
+		},
 	}
-}
 
-func failIfNotEqualS(t *testing.T, prefix, want, got string) {
-	if want != got {
-		t.Fatalf("%s: want %q got %q", prefix, want, got)
-	}
-}
-
-func failIfNotEqualI64(t *testing.T, prefix string, want, got int64) {
-	if want != got {
-		t.Fatalf("%s: want %d got %d", prefix, want, got)
+	for i, test := range tests {
+		sId, gSessionId, err := extractSessionIds(test.data)
+		if err != nil {
+			t.Fatalf("tests[%d]: unexpected error: %s", i, err)
+		}
+		if test.sId != sId {
+			t.Fatalf("tests[%d]: sId: want %q got %q", i, test.sId, sId)
+		}
+		if test.gSessionId != gSessionId {
+			t.Fatalf("tests[%d]: gSessionId: want %q got %q", i, test.gSessionId, gSessionId)
+		}
 	}
 }

@@ -72,7 +72,7 @@ func run() error {
 	if err != nil {
 		return err
 	}
-	if entry.cached && !entry.Device.Ping() {
+	if !entry.Device.Ping() {
 		log.Printf("%q is not awake, trying waking it up...", entry.Device.FriendlyName)
 		if err := entry.Device.TryWakeup(); err != nil {
 			return fmt.Errorf("%q: TryWakeup: %w", entry.Device.FriendlyName, err)
@@ -327,14 +327,26 @@ func extractScreenId(data string) (string, error) {
 }
 
 func playVideos(entry *cacheEntry, screenId string, videoIds []string) error {
-	remote := entry.Remote
-	if remote == nil || remote.ScreenId != screenId || remote.Expired() {
-		if remote != nil {
-			log.Println("unable to reuse cached YouTube Lounge session")
+	doConnect := false
+	switch {
+	case entry.Remote == nil:
+		doConnect = true
+	case entry.Remote.ScreenId != screenId:
+		doConnect = true
+		log.Println("screenId changed")
+	case entry.Remote.Expired():
+		// not sure if after refreshing the Remote can actually be used
+		// again, I have to test it with an expired token.
+		log.Println("LoungeToken expired, trying refreshing it")
+		if err := entry.Remote.RefreshToken(); err != nil {
+			log.Printf("RefreshToken: %s", err)
+			doConnect = true
 		}
+	}
+	if doConnect {
 		log.Printf("connecting to %q via YouTube Lounge", entry.Device.FriendlyName)
-		var err error
-		if remote, err = youtube.Connect(screenId, progName); err != nil {
+		remote, err := youtube.Connect(screenId, progName)
+		if err != nil {
 			return fmt.Errorf("Connect: %w", err)
 		}
 		entry.Remote = remote
@@ -343,12 +355,13 @@ func playVideos(entry *cacheEntry, screenId string, videoIds []string) error {
 		videoIds[i] = extractVideoId(v)
 	}
 	log.Printf("requesting YouTube Lounge to play %v on %q", videoIds, entry.Device.FriendlyName)
-	if err := remote.Play(videoIds...); err != nil {
+	if err := entry.Remote.Play(videoIds...); err != nil {
 		return fmt.Errorf("Play: %w", err)
 	}
 	return nil
 }
 
+// TODO move to youtube package?
 func extractVideoId(v string) string {
 	v = strings.TrimSpace(v)
 	u, err := url.Parse(v)

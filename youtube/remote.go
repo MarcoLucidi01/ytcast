@@ -1,11 +1,23 @@
-// TODO add logging
-// TODO add package description and links
+// Package youtube implements a minimal client for the YouTube Lounge API which
+// allows to connect and play videos (and more) on a remote "screen" (YouTube tv
+// app). The API is not public so this code CAN BREAK AT ANY TIME.
+//
+// The implementation derives from the work of various people I found on the web
+// that saved me hours of reverse engineering. I'd like to list and thank them
+// here:
+//   https://0x41.cf/automation/2021/03/02/google-assistant-youtube-smart-tvs.html
+//   https://github.com/thedroidgeek/youtube-cast-automation-api
+//   https://github.com/mutantmonkey/youtube-remote
+//   https://bugs.xdavidhu.me/google/2021/04/05/i-built-a-tv-that-plays-all-of-your-private-youtube-videos
+//   https://github.com/aykevl/plaincast
 package youtube
 
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io/ioutil"
+	"log"
 	"math/rand"
 	"net/http"
 	"net/url"
@@ -15,33 +27,51 @@ import (
 )
 
 const (
-	// YouTube Lounge API base url and endpoints.
 	apiBase           = "https://www.youtube.com/api/lounge"
 	apiGetLoungeToken = apiBase + "/pairing/get_lounge_token_batch"
 	apiBind           = apiBase + "/bc/bind"
 
-	// userAgent header value for http requests.
-	userAgent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/96.0.4664.45 Safari/537.36"
+	paramAid        = "5"
+	paramApp        = "youtube-desktop"
+	paramCver       = "1"
+	paramDevice     = "REMOTE_CONTROL"
+	paramMdxVersion = "3"
+	paramUi         = "1"
+	paramV          = "2"
+	paramVer        = "8"
 
-	// Origin header value for http requests.
+	// these values are arbitrary chosen.
+	paramIdLen = 32
+	paramZxLen = 12
+
+	contentType = "application/x-www-form-urlencoded"
+	userAgent   = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/96.0.4664.45 Safari/537.36"
+
+	// Origin header value for HTTP requests to YouTube services.
 	Origin = "https://www.youtube.com"
 
 	// YouTube application name registered in the DIAL register.
-	// see http://www.dial-multiscreen.org/dial-registry/namespace-database
+	// See http://www.dial-multiscreen.org/dial-registry/namespace-database
 	DialAppName = "YouTube"
 )
 
-// Remote holds session state and tokens for a "connected" youtube tv app and
-// allows to play videos on it until Expiration.
+var (
+	errBadHttpStatus = errors.New("bad HTTP response status")
+	errNoScreens     = errors.New("missing screens array")
+	errNoToken       = errors.New("missing loungeToken")
+	errNoSessionIds  = errors.New("missing session ids")
+)
+
+// Remote holds Lounge session state and tokens of a connected screen (tv app)
+// and allows to play videos on it until Expiration.
 type Remote struct {
 	ScreenId    string // id of the screen (tv app) we are connected (or connecting) to.
-	Name        string // "our" name displayed on tv app at connection time.
-	Id          string // our (client) id? we use a randString() at the moment, an uuid would be better.
-	LoungeToken string // token for lounge api requests.
+	Name        string // name displayed on the screen at connection time.
+	Id          string // client id? we use a randString() at the moment, an uuid would be better.
+	LoungeToken string // token for Lounge API requests.
 	Expiration  int64  // LoungeToken expiration timestamp in milliseconds.
-	AId         int    // don't know what it is, we pass 5.
 	RId         int    // request id? random id? we take a random integer and increment it at each request.
-	SId         string // session id? we fetch it at each Play().
+	SId         string // session id? it can expire very often so we fetch it at each Play().
 	GSessionId  string // another session id? google session id? we fetch it along with SId.
 	Ofs         int    // don't know what it is, we start at 0 and increment it on each Play().
 }
@@ -50,35 +80,36 @@ func init() {
 	rand.Seed(time.Now().UnixNano())
 }
 
-// Connect connects to a screen (tv app) identified by screenId. name will be
-// displayed on the screen at connection time. Returns a *Remote that can be
-// used to play video on that screen.
+// Connect connects to a screen (tv app) identified by screenId through the
+// Lounge API. name will be displayed on the screen at connection time. Returns
+// a Remote that can be used to play video on that screen.
 func Connect(screenId, name string) (*Remote, error) {
 	r := &Remote{
 		ScreenId: screenId,
 		Name:     name,
-		Id:       randString(32),
-		AId:      5,
-		RId:      rand.Intn(99999),
+		Id:       randString(paramIdLen),
+		RId:      rand.Int(),
 	}
-	if err := r.getLoungeToken(); err != nil {
+	if err := r.RefreshToken(); err != nil {
 		return nil, err
 	}
 	return r, nil
 }
 
-func (r *Remote) getLoungeToken() error {
+// RefreshToken gets a new LoungeToken for the screenId. Should be used when the
+// token has Expired().
+func (r *Remote) RefreshToken() error {
 	b := url.Values{}
 	b.Set("screen_ids", r.ScreenId)
 	respBody, err := doReq("POST", apiGetLoungeToken, nil, b)
 	if err != nil {
 		return err
 	}
-
-	r.LoungeToken, r.Expiration, err = extractLoungeToken(respBody)
+	tok, exp, err := extractLoungeToken(respBody)
 	if err != nil {
 		return err
 	}
+	r.LoungeToken, r.Expiration = tok, exp
 	return nil
 }
 
@@ -93,39 +124,45 @@ func extractLoungeToken(data []byte) (string, int64, error) {
 		return "", 0, err
 	}
 	if len(v.Screens) == 0 {
-		return "", 0, errors.New("screens array empty")
+		return "", 0, errNoScreens
 	}
 	if len(v.Screens[0].LoungeToken) == 0 {
-		return "", 0, errors.New("loungeToken empty")
+		return "", 0, errNoToken
 	}
 	return v.Screens[0].LoungeToken, v.Screens[0].Expiration, nil
 }
 
+// Expired returns true if the LoungeToken has expired.
+func (r *Remote) Expired() bool {
+	exp := time.Unix(0, r.Expiration*int64(time.Millisecond))
+	return time.Now().After(exp)
+}
+
 func (r *Remote) getSessionIds() error {
 	q := url.Values{}
-	q.Set("device", "REMOTE_CONTROL")
-	q.Set("mdx-version", "3")
-	q.Set("ui", "1")
-	q.Set("v", "2")
-	q.Set("VER", "8")
-	q.Set("CVER", "1")
-	q.Set("app", "youtube-desktop")
-	q.Set("name", r.Name)
-	q.Set("loungeIdToken", r.LoungeToken)
-	q.Set("id", r.Id)
-	q.Set("zx", randString(12))
+	q.Set("CVER", paramCver)
 	q.Set("RID", strconv.Itoa(r.nextRId()))
+	q.Set("VER", paramVer)
+	q.Set("app", paramApp)
+	q.Set("device", paramDevice)
+	q.Set("id", r.Id)
+	q.Set("loungeIdToken", r.LoungeToken)
+	q.Set("mdx-version", paramMdxVersion)
+	q.Set("name", r.Name)
+	q.Set("ui", paramUi)
+	q.Set("v", paramV)
+	q.Set("zx", randString(paramZxLen))
 	b := url.Values{}
 	b.Set("count", "0")
 	respBody, err := doReq("POST", apiBind, q, b)
 	if err != nil {
 		return err
 	}
-
-	r.SId, r.GSessionId, err = extractSessionIds(respBody)
+	sId, gSessionId, err := extractSessionIds(respBody)
 	if err != nil {
 		return err
 	}
+	r.SId, r.GSessionId = sId, gSessionId
 	return nil
 }
 
@@ -140,13 +177,13 @@ func extractSessionIds(data []byte) (string, string, error) {
 	}
 
 	// next we have a bunch of json arrays containing mixed type values,
-	// that's why interface{}.
+	// that's why interface{}. See remote_test.go for an example.
 	var v [][]interface{}
 	if err := json.Unmarshal(data, &v); err != nil {
 		return "", "", err
 	}
-	sId := ""
-	gsessionId := ""
+	var sId string
+	var gsessionId string
 	for _, a1 := range v {
 		if len(a1) < 2 {
 			continue
@@ -168,29 +205,34 @@ func extractSessionIds(data []byte) (string, string, error) {
 			sId = value
 		case "S":
 			gsessionId = value
+		default:
+			continue
 		}
 
-		if len(sId) > 0 && len(gsessionId) > 0 {
+		if sId != "" && gsessionId != "" {
 			return sId, gsessionId, nil
 		}
 	}
-	return "", "", errors.New("unable to extract session ids")
+	return "", "", errNoSessionIds
 }
 
+// Play requests the Lounge API to play immediately the first video on the
+// screen and to enqueue the others. It does not accept video urls, you must
+// pass only video ids.
 func (r *Remote) Play(videoIds ...string) error {
 	if err := r.getSessionIds(); err != nil {
 		return err
 	}
 	q := url.Values{}
-	q.Set("device", "REMOTE_CONTROL")
-	q.Set("VER", "8")
-	q.Set("loungeIdToken", r.LoungeToken)
-	q.Set("id", r.Id)
-	q.Set("zx", randString(12))
-	q.Set("SID", r.SId)
-	q.Set("gsessionid", r.GSessionId)
-	q.Set("AID", strconv.Itoa(r.AId))
+	q.Set("AID", paramAid)
 	q.Set("RID", strconv.Itoa(r.nextRId()))
+	q.Set("SID", r.SId)
+	q.Set("VER", paramVer)
+	q.Set("device", paramDevice)
+	q.Set("gsessionid", r.GSessionId)
+	q.Set("id", r.Id)
+	q.Set("loungeIdToken", r.LoungeToken)
+	q.Set("zx", randString(paramZxLen))
 	b := url.Values{}
 	b.Set("count", "1")
 	b.Set("req0__sc", "setPlaylist")
@@ -199,37 +241,6 @@ func (r *Remote) Play(videoIds ...string) error {
 	b.Set("ofs", strconv.Itoa(r.nextOfs()))
 	_, err := doReq("POST", apiBind, q, b)
 	return err
-}
-
-func doReq(method, url string, query, body url.Values) ([]byte, error) {
-	req, err := http.NewRequest(method, url, strings.NewReader(body.Encode()))
-	if err != nil {
-		return nil, err
-	}
-	if len(query) > 0 {
-		req.URL.RawQuery = query.Encode()
-	}
-	if len(body) > 0 {
-		req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
-	}
-	req.Header.Set("Origin", Origin)
-	req.Header.Set("User-Agent", userAgent)
-
-	resp, err := http.DefaultClient.Do(req)
-	if err != nil {
-		return nil, err
-	}
-	defer resp.Body.Close()
-	respBody, err := ioutil.ReadAll(resp.Body)
-	if err == nil && resp.StatusCode != 200 {
-		err = errors.New(resp.Status)
-	}
-	return respBody, err
-}
-
-func (r *Remote) Expired() bool {
-	exp := time.Unix(0, r.Expiration*int64(time.Millisecond))
-	return time.Now().After(exp)
 }
 
 func (r *Remote) nextRId() int {
@@ -242,6 +253,33 @@ func (r *Remote) nextOfs() int {
 	ofs := r.Ofs
 	r.Ofs++
 	return ofs
+}
+
+func doReq(method, url string, query, body url.Values) ([]byte, error) {
+	req, err := http.NewRequest(method, url, strings.NewReader(body.Encode()))
+	if err != nil {
+		return nil, err
+	}
+	if len(query) > 0 {
+		req.URL.RawQuery = query.Encode()
+	}
+	if len(body) > 0 {
+		req.Header.Set("Content-Type", contentType)
+	}
+	req.Header.Set("Origin", Origin) // doesn't hurt
+	req.Header.Set("User-Agent", userAgent)
+
+	log.Printf("%s %s", method, url)
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+	respBody, err := ioutil.ReadAll(resp.Body)
+	if err == nil && resp.StatusCode != 200 {
+		err = fmt.Errorf("%s %s: %s: %w", req.Method, req.URL, resp.Status, errBadHttpStatus)
+	}
+	return respBody, err
 }
 
 func randString(n int) string {

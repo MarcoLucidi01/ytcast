@@ -148,7 +148,7 @@ func doReq(method, url string, origin, body string) ([]byte, http.Header, error)
 		req.Header.Set("Content-Type", "text/plain; charset=utf-8")
 	}
 
-	log.Printf("%s %s", req.Method, req.URL)
+	log.Printf("%s %s", method, url)
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
 		return nil, nil, err
@@ -267,6 +267,8 @@ func (d *Device) TryWakeup() error {
 
 // Ping checks if the Device is up and returns true if it is.
 func (d *Device) Ping() bool {
+	// TODO set a shorter timeout, my tv hangs the request for 30 seconds
+	// while it's "off", I guess because it's not *completely* off.
 	_, _, err := doReq("GET", d.Location, "", "")
 	if err != nil && errors.Is(err, errBadHttpStatus) {
 		err = nil
