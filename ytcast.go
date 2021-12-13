@@ -22,6 +22,7 @@ import (
 
 const (
 	progName = "ytcast"
+	progRepo = "https://github.com/MarcoLucidi01/ytcast"
 
 	xdgCache         = "XDG_CACHE_HOME"
 	fallbackCacheDir = ".cache" // used if xdgCache is not set, stored in $HOME
@@ -50,20 +51,19 @@ var (
 	errNoVideo         = errors.New("no video to play")
 	errUnknownAppState = errors.New("unknown app state")
 
-	flagClearCache = flag.Bool("c", false, "TODO clear cache")
-	flagDevice     = flag.String("d", "", "select device by name, hostname or unique service name")
-	flagLastUsed   = flag.Bool("l", false, "select last used device")
-	flagSearch     = flag.Bool("s", false, "search (discover) devices on the network and update cache")
-	flagTimeout    = flag.Duration("t", searchTimeout, "search timeout") // TODO change to int
-	flagVerbose    = flag.Bool("verbose", false, "enable verbose logging")
-	flagVersion    = flag.Bool("v", false, "TODO print program version")
+	flagDevice   = flag.String("d", "", "select device by name, hostname or unique service name")
+	flagLastUsed = flag.Bool("l", false, "select last used device")
+	flagSearch   = flag.Bool("s", false, "search (discover) devices on the network and update cache")
+	flagTimeout  = flag.Duration("t", searchTimeout, "search timeout") // TODO change to int
+	flagVerbose  = flag.Bool("verbose", false, "enable verbose logging")
 )
 
 func main() {
 	flag.Usage = func() {
-		fmt.Fprintf(flag.CommandLine.Output(), "usage: %s [-c|-d|-l|-s|-t|-v|-verbose] [video...]\n\n", progName)
+		fmt.Fprintf(flag.CommandLine.Output(), "usage: %s [-d|-l|-s|-t|-verbose] [video...]\n\n", progName)
+		fmt.Fprintf(flag.CommandLine.Output(), "cast YouTube videos to your smart TV.\n\n")
 		flag.PrintDefaults()
-		fmt.Fprintf(flag.CommandLine.Output(), "\nhttps://github.com/MarcoLucidi01/ytcast\n")
+		fmt.Fprintf(flag.CommandLine.Output(), "\n%s\n", progRepo)
 	}
 	flag.Parse()
 
