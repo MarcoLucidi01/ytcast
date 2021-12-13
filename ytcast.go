@@ -54,7 +54,7 @@ var (
 	flagDevice   = flag.String("d", "", "select device by name, hostname or unique service name")
 	flagLastUsed = flag.Bool("l", false, "select last used device")
 	flagSearch   = flag.Bool("s", false, "search (discover) devices on the network and update cache")
-	flagTimeout  = flag.Duration("t", searchTimeout, "search timeout") // TODO change to int
+	flagTimeout  = flag.Duration("t", searchTimeout, fmt.Sprintf("search timeout (min %s max %s)", dial.MsMinTimeout, dial.MsMaxTimeout))
 	flagVerbose  = flag.Bool("verbose", false, "enable verbose logging")
 )
 
