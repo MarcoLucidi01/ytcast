@@ -43,6 +43,8 @@ type cast struct {
 }
 
 var (
+	progVersion = "develop" // set with -ldflags at build time
+
 	errNoDevFound      = errors.New("no device found")
 	errNoDevLastUsed   = errors.New("no device last used")
 	errNoDevMatch      = errors.New("no device matches")
@@ -56,21 +58,27 @@ var (
 	flagSearch   = flag.Bool("s", false, "search (discover) devices on the network and update cache")
 	flagTimeout  = flag.Duration("t", searchTimeout, fmt.Sprintf("search timeout (min %s max %s)", dial.MsMinTimeout, dial.MsMaxTimeout))
 	flagVerbose  = flag.Bool("verbose", false, "enable verbose logging")
+	flagVersion  = flag.Bool("v", false, "print program version")
 )
 
 func main() {
 	flag.Usage = func() {
-		fmt.Fprintf(flag.CommandLine.Output(), "usage: %s [-l|-n|-s|-t|-verbose] [video...]\n\n", progName)
+		fmt.Fprintf(flag.CommandLine.Output(), "usage: %s [-l|-n|-s|-t|-v|-verbose] [video...]\n\n", progName)
 		fmt.Fprintf(flag.CommandLine.Output(), "cast YouTube videos to your smart TV.\n\n")
 		flag.PrintDefaults()
 		fmt.Fprintf(flag.CommandLine.Output(), "\n%s\n", progRepo)
 	}
 	flag.Parse()
 
+	if *flagVersion {
+		fmt.Fprintf(os.Stderr, "%s %s\n", progName, progVersion)
+		return
+	}
 	log.SetFlags(log.Ltime | log.Lmicroseconds | log.Lshortfile)
 	if !*flagVerbose {
 		log.SetOutput(ioutil.Discard)
 	}
+	log.Printf("%s %s\n", progName, progVersion)
 
 	if err := run(); err != nil {
 		log.Println(err)
