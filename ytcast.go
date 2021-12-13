@@ -160,17 +160,17 @@ func mkCacheDir() string {
 
 func loadCache(fpath string) map[string]*cast {
 	log.Printf("loading cache %s", fpath)
+	cache := make(map[string]*cast)
 	data, err := ioutil.ReadFile(fpath)
 	if err != nil {
 		log.Println(err)
-		return nil
+		return cache
 	}
 	var cacheValues []*cast
 	if err = json.Unmarshal(data, &cacheValues); err != nil {
 		log.Printf("unmarshal cache: %s", err)
-		return nil
+		return cache
 	}
-	cache := make(map[string]*cast)
 	for _, entry := range cacheValues {
 		entry.cached = true
 		cache[entry.Device.UniqueServiceName] = entry
