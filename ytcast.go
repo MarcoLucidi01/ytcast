@@ -23,8 +23,9 @@ import (
 const (
 	progName = "ytcast"
 
-	xdgCache      = "XDG_CACHE_HOME"
-	cacheFileName = progName + ".json"
+	xdgCache         = "XDG_CACHE_HOME"
+	fallbackCacheDir = ".cache" // used if xdgCache is not set, stored in $HOME
+	cacheFileName    = progName + ".json"
 
 	searchTimeout       = 3 * time.Second
 	launchTimeout       = 1 * time.Minute
@@ -37,7 +38,7 @@ type cast struct {
 	Device   *dial.Device
 	Remote   *youtube.Remote
 	LastUsed bool // true if Device is the last successfully used Device.
-	cached   bool // true if Device was fetched from the cache and not discovered/updated in the current invocation.
+	cached   bool // true if Device was fetched from the cache and not just discovered/updated.
 }
 
 var (
@@ -146,7 +147,7 @@ func mkCacheDir() string {
 			log.Println(err)
 			return "." // current directory
 		}
-		cacheDir = path.Join(homeDir, ".cache")
+		cacheDir = path.Join(homeDir, fallbackCacheDir)
 	}
 	cacheDir = path.Join(cacheDir, progName)
 	log.Printf("mkdir -p %s", cacheDir)
