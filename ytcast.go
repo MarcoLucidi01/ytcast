@@ -51,8 +51,8 @@ var (
 	errNoVideo         = errors.New("no video to play")
 	errUnknownAppState = errors.New("unknown app state")
 
-	flagDevice   = flag.String("d", "", "select device by name, hostname or unique service name")
 	flagLastUsed = flag.Bool("l", false, "select last used device")
+	flagName     = flag.String("n", "", "select device by substring of name, hostname (ip) or unique service name")
 	flagSearch   = flag.Bool("s", false, "search (discover) devices on the network and update cache")
 	flagTimeout  = flag.Duration("t", searchTimeout, fmt.Sprintf("search timeout (min %s max %s)", dial.MsMinTimeout, dial.MsMaxTimeout))
 	flagVerbose  = flag.Bool("verbose", false, "enable verbose logging")
@@ -60,7 +60,7 @@ var (
 
 func main() {
 	flag.Usage = func() {
-		fmt.Fprintf(flag.CommandLine.Output(), "usage: %s [-d|-l|-s|-t|-verbose] [video...]\n\n", progName)
+		fmt.Fprintf(flag.CommandLine.Output(), "usage: %s [-l|-n|-s|-t|-verbose] [video...]\n\n", progName)
 		fmt.Fprintf(flag.CommandLine.Output(), "cast YouTube videos to your smart TV.\n\n")
 		flag.PrintDefaults()
 		fmt.Fprintf(flag.CommandLine.Output(), "\n%s\n", progRepo)
@@ -99,9 +99,9 @@ func run() error {
 
 	var selected *cast
 	switch {
-	case *flagDevice != "":
-		if selected = matchDevice(cache, *flagDevice); selected == nil {
-			return fmt.Errorf("%w %q", errNoDevMatch, *flagDevice)
+	case *flagName != "":
+		if selected = matchDevice(cache, *flagName); selected == nil {
+			return fmt.Errorf("%w %q", errNoDevMatch, *flagName)
 		}
 	case *flagLastUsed:
 		if selected = findLastUsedDevice(cache); selected == nil {
@@ -210,10 +210,10 @@ func discoverDevices(cache map[string]*cast, timeout time.Duration) error {
 	return nil
 }
 
-func matchDevice(cache map[string]*cast, device string) *cast {
-	device = strings.ToLower(strings.TrimSpace(device))
+func matchDevice(cache map[string]*cast, name string) *cast {
+	name = strings.ToLower(strings.TrimSpace(name))
 	for _, entry := range cache {
-		if strings.Contains(strings.ToLower(entry.Device.FriendlyName), device) {
+		if strings.Contains(strings.ToLower(entry.Device.FriendlyName), name) {
 			return entry
 		}
 	}
@@ -224,12 +224,12 @@ func matchDevice(cache map[string]*cast, device string) *cast {
 		if u, err := url.Parse(entry.Device.ApplicationUrl); err == nil {
 			host = u.Hostname()
 		}
-		if strings.Contains(strings.ToLower(host), device) {
+		if strings.Contains(strings.ToLower(host), name) {
 			return entry
 		}
 	}
 	for _, entry := range cache {
-		if strings.Contains(strings.ToLower(entry.Device.UniqueServiceName), device) {
+		if strings.Contains(strings.ToLower(entry.Device.UniqueServiceName), name) {
 			return entry
 		}
 	}
