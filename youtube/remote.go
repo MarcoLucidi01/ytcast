@@ -1,3 +1,5 @@
+// See license file for copyright and license details.
+
 // Package youtube implements a minimal client for the YouTube Lounge API which
 // allows to connect and play videos (and more) on a remote "screen" (YouTube tv
 // app). The API is not public so this code CAN BREAK AT ANY TIME.

@@ -1,3 +1,5 @@
+// See license file for copyright and license details.
+
 package main
 
 import (

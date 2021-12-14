@@ -1,3 +1,5 @@
+// See license file for copyright and license details.
+
 // Package dial implements a basic DIAL (DIscovery And Launch) client.
 // See http://www.dial-multiscreen.org/
 package dial

@@ -1,3 +1,5 @@
+// See license file for copyright and license details.
+
 // This file implements the SSDP (Simple Service Discovery Protocol) portion
 // used by the DIAL protocol (i.e. the M-SEARCH request).
 
