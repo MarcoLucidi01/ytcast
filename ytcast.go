@@ -35,15 +35,6 @@ const (
 	launchCheckInterval = 2 * time.Second
 )
 
-// cast contains a dial.Device and the youtube.Remote connected to that Device.
-// It's stored in the cache.
-type cast struct {
-	Device   *dial.Device
-	Remote   *youtube.Remote
-	LastUsed bool // true if Device is the last successfully used Device.
-	cached   bool // true if Device was fetched from the cache and not just discovered/updated.
-}
-
 var (
 	progVersion = "develop" // set with -ldflags at build time
 
@@ -62,6 +53,15 @@ var (
 	flagVerbose  = flag.Bool("verbose", false, "enable verbose logging")
 	flagVersion  = flag.Bool("v", false, "print program version")
 )
+
+// cast contains a dial.Device and the youtube.Remote connected to that Device.
+// It's stored in the cache.
+type cast struct {
+	Device   *dial.Device
+	Remote   *youtube.Remote
+	LastUsed bool // true if Device is the last successfully used Device.
+	cached   bool // true if Device was fetched from the cache and not just discovered/updated.
+}
 
 func main() {
 	flag.Usage = func() {
@@ -134,6 +134,12 @@ func run() error {
 	}
 
 	if !selected.Device.Ping() {
+		// TODO this ping and wakeup method doesn't work very well, my
+		// tv changes the Location url and ApplicationUrl port at each
+		// restart, so after waking up, the ping still fails because it
+		// uses the old (cached) port but the tv is on!
+		// we should search the device again after it has been turned on
+		// to get updated urls
 		log.Printf("%q is not awake, trying waking it up...", selected.Device.FriendlyName)
 		if err := selected.Device.TryWakeup(); err != nil {
 			return fmt.Errorf("%q: TryWakeup: %w", selected.Device.FriendlyName, err)
