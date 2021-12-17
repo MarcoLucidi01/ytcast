@@ -5,7 +5,6 @@ package main
 import (
 	"bufio"
 	"encoding/json"
-	"encoding/xml"
 	"errors"
 	"flag"
 	"fmt"
@@ -312,7 +311,7 @@ func launchYouTubeApp(selected *cast) (string, error) {
 		log.Printf("%q is %s on %q", appName, app.State, devName)
 		switch app.State {
 		case "running":
-			screenId, err := extractScreenId(app.Additional.Data)
+			screenId, err := youtube.ExtractScreenId(app.Additional.Data)
 			if err != nil {
 				return "", err
 			}
@@ -332,21 +331,6 @@ func launchYouTubeApp(selected *cast) (string, error) {
 		}
 	}
 	return "", fmt.Errorf("%q: %q: %w", devName, appName, errNoLaunch)
-}
-
-// TODO move to youtube package?
-func extractScreenId(data string) (string, error) {
-	// TODO dial.AppInfo.Additional.Data it's not wrapped in a root element,
-	// I add a dummy root here but I think data should already be wrapped in
-	// a root element.
-	data = fmt.Sprintf("<dummy>%s</dummy>", data)
-	var v struct {
-		ScreenId string `xml:"screenId"`
-	}
-	if err := xml.Unmarshal([]byte(data), &v); err != nil {
-		return "", err
-	}
-	return strings.TrimSpace(v.ScreenId), nil
 }
 
 func readVideosFromStdin() ([]string, error) {
@@ -388,28 +372,11 @@ func playVideos(selected *cast, screenId string, videos []string) error {
 		selected.Remote = remote
 	}
 	for i, v := range videos {
-		videos[i] = extractVideoId(v)
+		videos[i] = youtube.ExtractVideoId(v)
 	}
 	log.Printf("requesting YouTube Lounge to play %v on %q", videos, selected.Device.FriendlyName)
 	if err := selected.Remote.Play(videos...); err != nil {
 		return fmt.Errorf("Play: %w", err)
 	}
 	return nil
-}
-
-// TODO move to youtube package?
-func extractVideoId(video string) string {
-	video = strings.TrimSpace(video)
-	u, err := url.Parse(video)
-	if err != nil {
-		return video
-	}
-	vid := u.Query().Get("v")
-	if vid != "" {
-		return vid
-	}
-	if vid = path.Base(u.Path); vid != "" && vid != "." && vid != "/" {
-		return vid
-	}
-	return video
 }

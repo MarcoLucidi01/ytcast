@@ -1,6 +1,6 @@
 // See license file for copyright and license details.
 
-package main
+package youtube
 
 import (
 	"testing"
@@ -13,7 +13,7 @@ func TestExtractScreenId(t *testing.T) {
 
 	const want = "foo-bar-baz"
 	for i, test := range tests {
-		screenId, err := extractScreenId(test)
+		screenId, err := ExtractScreenId(test)
 		if err != nil {
 			t.Fatalf("tests[%d]: unexpected error: %q", i, err)
 		}
@@ -36,7 +36,7 @@ func TestExtractVideoId(t *testing.T) {
 
 	const want = "0zM3nApSvMg"
 	for i, test := range tests {
-		videoId := extractVideoId(test)
+		videoId := ExtractVideoId(test)
 		if videoId != want {
 			t.Fatalf("tests[%d]: videoId: want %q got %q", i, want, videoId)
 		}
