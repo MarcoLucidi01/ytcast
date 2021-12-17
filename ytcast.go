@@ -12,6 +12,7 @@ import (
 	"log"
 	"net/url"
 	"os"
+	"os/user"
 	"path"
 	"sort"
 	"strings"
@@ -364,8 +365,7 @@ func playVideos(selected *cast, screenId string, videos []string) error {
 	}
 	if doConnect {
 		log.Printf("connecting to %q via YouTube Lounge", selected.Device.FriendlyName)
-		// TODO use "$USER@$HOSTNAME progName" instead of just progName?
-		remote, err := youtube.Connect(screenId, progName)
+		remote, err := youtube.Connect(screenId, getConnectName())
 		if err != nil {
 			return fmt.Errorf("Connect: %w", err)
 		}
@@ -379,4 +379,18 @@ func playVideos(selected *cast, screenId string, videos []string) error {
 		return fmt.Errorf("Play: %w", err)
 	}
 	return nil
+}
+
+func getConnectName() string {
+	u, err := user.Current()
+	if err != nil {
+		log.Println(err)
+		return progName
+	}
+	h, err := os.Hostname()
+	if err != nil {
+		log.Println(err)
+		return progName
+	}
+	return fmt.Sprintf("%s@%s", u.Username, h)
 }

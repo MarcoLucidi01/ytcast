@@ -38,7 +38,6 @@ TODO
 - [ ] add flag to clear devices cache (`-c`). can be used with other flags?
 - [ ] add flag to disconnect from device (`-d`)? not a priority.
 - [ ] allow to play videos from specific timestamp? might be useful.
-- [ ] use "$USER@$HOSTNAME ytcast" as `youtube.Connect()` name.
 - [ ] add install target to makefile.
 - [ ] allow `-s` to be used with `-l` and `-n` i.e. search and play.
 - [ ] fix the ping and wakeup issue (see TODO in ytcast.go)
