@@ -1,8 +1,8 @@
 // See license file for copyright and license details.
 
 // Package youtube implements a minimal client for the YouTube Lounge API which
-// allows to connect and play videos (and more) on a remote "screen" (YouTube tv
-// app). The API is not public so this code CAN BREAK AT ANY TIME.
+// allows to connect and play videos on a remote "screen" (YouTube tv app). The
+// API is not public so this code CAN BREAK AT ANY TIME.
 //
 // The implementation derives from the work of various people I found on the web
 // that saved me hours of reverse engineering. I'd like to list and thank them
@@ -20,10 +20,8 @@ import (
 	"fmt"
 	"io/ioutil"
 	"log"
-	"math/rand"
 	"net/http"
 	"net/url"
-	"strconv"
 	"strings"
 	"time"
 )
@@ -33,18 +31,13 @@ const (
 	apiGetLoungeToken = apiBase + "/pairing/get_lounge_token_batch"
 	apiBind           = apiBase + "/bc/bind"
 
-	paramAid        = "5"
-	paramApp        = "youtube-desktop"
-	paramCver       = "1"
-	paramDevice     = "REMOTE_CONTROL"
-	paramMdxVersion = "3"
-	paramUi         = "1"
-	paramV          = "2"
-	paramVer        = "8"
-
-	// these values are arbitrary chosen.
-	paramIdLen = 32
-	paramZxLen = 12
+	paramApp              = "youtube-desktop"
+	paramCver             = "1"
+	paramDevice           = "REMOTE_CONTROL"
+	paramId               = "remote"
+	paramRidGetSessionIds = "1"
+	paramRidPlay          = "2"
+	paramVer              = "8"
 
 	contentType = "application/x-www-form-urlencoded"
 	userAgent   = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/96.0.4664.45 Safari/537.36"
@@ -64,36 +57,24 @@ var (
 	errNoSessionIds  = errors.New("missing session ids")
 )
 
-// Remote holds Lounge session state and tokens of a connected screen (tv app)
-// and allows to play videos on it until Expiration.
+// Remote holds Lounge session tokens of a connected screen (tv app) and allows
+// to play videos on it until Expiration.
 type Remote struct {
 	ScreenId    string // id of the screen (tv app) we are connected (or connecting) to.
 	Name        string // name displayed on the screen at connection time.
-	Id          string // client id? we use a randString() at the moment, an uuid would be better.
 	LoungeToken string // token for Lounge API requests.
 	Expiration  int64  // LoungeToken expiration timestamp in milliseconds.
-	RId         int    // request id? random id? we take a random integer and increment it at each request.
 	SId         string // session id? it can expire very often so we fetch it at each Play().
 	GSessionId  string // another session id? google session id? we fetch it along with SId.
-	Ofs         int    // don't know what it is, we start at 0 and increment it on each Play().
-}
-
-func init() {
-	rand.Seed(time.Now().UnixNano())
 }
 
 // Connect connects to a screen (tv app) identified by screenId through the
 // Lounge API. name will be displayed on the screen at connection time. Returns
 // a Remote that can be used to play video on that screen.
 func Connect(screenId, name string) (*Remote, error) {
-	r := &Remote{
-		ScreenId: screenId,
-		Name:     name,
-		Id:       randString(paramIdLen),
-		RId:      rand.Int(),
-	}
+	r := &Remote{ScreenId: screenId, Name: name}
 	if err := r.RefreshToken(); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("RefreshToken: %w", err)
 	}
 	return r, nil
 }
@@ -143,20 +124,14 @@ func (r *Remote) Expired() bool {
 func (r *Remote) getSessionIds() error {
 	q := url.Values{}
 	q.Set("CVER", paramCver)
-	q.Set("RID", strconv.Itoa(r.nextRId()))
+	q.Set("RID", paramRidGetSessionIds)
 	q.Set("VER", paramVer)
 	q.Set("app", paramApp)
 	q.Set("device", paramDevice)
-	q.Set("id", r.Id)
+	q.Set("id", paramId)
 	q.Set("loungeIdToken", r.LoungeToken)
-	q.Set("mdx-version", paramMdxVersion)
 	q.Set("name", r.Name)
-	q.Set("ui", paramUi)
-	q.Set("v", paramV)
-	q.Set("zx", randString(paramZxLen))
-	b := url.Values{}
-	b.Set("count", "0")
-	respBody, err := doReq("POST", apiBind, q, b)
+	respBody, err := doReq("POST", apiBind, q, nil)
 	if err != nil {
 		return err
 	}
@@ -223,38 +198,22 @@ func extractSessionIds(data []byte) (string, string, error) {
 // pass only video ids.
 func (r *Remote) Play(videoIds ...string) error {
 	if err := r.getSessionIds(); err != nil {
-		return err
+		return fmt.Errorf("getSessionIds: %w", err)
 	}
 	q := url.Values{}
-	q.Set("AID", paramAid)
-	q.Set("RID", strconv.Itoa(r.nextRId()))
+	q.Set("CVER", paramCver)
+	q.Set("RID", paramRidPlay)
 	q.Set("SID", r.SId)
 	q.Set("VER", paramVer)
-	q.Set("device", paramDevice)
 	q.Set("gsessionid", r.GSessionId)
-	q.Set("id", r.Id)
 	q.Set("loungeIdToken", r.LoungeToken)
-	q.Set("zx", randString(paramZxLen))
 	b := url.Values{}
 	b.Set("count", "1")
 	b.Set("req0__sc", "setPlaylist")
 	b.Set("req0_videoId", videoIds[0])                  // play first video
 	b.Set("req0_videoIds", strings.Join(videoIds, ",")) // enqueue first and the others
-	b.Set("ofs", strconv.Itoa(r.nextOfs()))
 	_, err := doReq("POST", apiBind, q, b)
 	return err
-}
-
-func (r *Remote) nextRId() int {
-	rId := r.RId
-	r.RId++
-	return rId
-}
-
-func (r *Remote) nextOfs() int {
-	ofs := r.Ofs
-	r.Ofs++
-	return ofs
 }
 
 func doReq(method, url string, query, body url.Values) ([]byte, error) {
@@ -279,17 +238,7 @@ func doReq(method, url string, query, body url.Values) ([]byte, error) {
 	defer resp.Body.Close()
 	respBody, err := ioutil.ReadAll(resp.Body)
 	if err == nil && resp.StatusCode != 200 {
-		err = fmt.Errorf("%s %s: %s: %w", req.Method, req.URL, resp.Status, errBadHttpStatus)
+		err = fmt.Errorf("%s %s: %s: %w", method, url, resp.Status, errBadHttpStatus)
 	}
 	return respBody, err
-}
-
-func randString(n int) string {
-	const chars = "abcdefghijklmnopqrstuvwxdzABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890"
-
-	buf := make([]byte, n)
-	for i := range buf {
-		buf[i] = chars[rand.Intn(len(chars))]
-	}
-	return string(buf)
 }
