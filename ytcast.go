@@ -73,7 +73,7 @@ func main() {
 	flag.Parse()
 
 	if *flagVersion {
-		fmt.Fprintf(os.Stderr, "%s %s\n", progName, progVersion)
+		fmt.Printf("%s %s\n", progName, progVersion)
 		return
 	}
 	log.SetFlags(log.Ltime | log.Lmicroseconds | log.Lshortfile)
