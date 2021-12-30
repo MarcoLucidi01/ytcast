@@ -277,3 +277,12 @@ func (d *Device) Ping() bool {
 	}
 	return err == nil
 }
+
+// Hostname returns the Device's hostname extracted from ApplicationUrl.
+func (d *Device) Hostname() string {
+	u, err := url.Parse(d.ApplicationUrl)
+	if err != nil {
+		return ""
+	}
+	return u.Hostname()
+}

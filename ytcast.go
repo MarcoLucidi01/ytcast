@@ -10,7 +10,6 @@ import (
 	"fmt"
 	"io/ioutil"
 	"log"
-	"net/url"
 	"os"
 	"os/user"
 	"path"
@@ -229,23 +228,10 @@ func discoverDevices(cache map[string]*cast, timeout time.Duration) error {
 func matchDevice(cache map[string]*cast, name string) *cast {
 	name = strings.ToLower(strings.TrimSpace(name))
 	for _, entry := range cache {
-		if strings.Contains(strings.ToLower(entry.Device.FriendlyName), name) {
-			return entry
-		}
-	}
-	for _, entry := range cache {
-		// TODO dial.Device should have a hostname field already parsed
-		// from ApplicationUrl for convenience
-		host := entry.Device.ApplicationUrl
-		if u, err := url.Parse(entry.Device.ApplicationUrl); err == nil {
-			host = u.Hostname()
-		}
-		if strings.Contains(strings.ToLower(host), name) {
-			return entry
-		}
-	}
-	for _, entry := range cache {
-		if strings.Contains(strings.ToLower(entry.Device.UniqueServiceName), name) {
+		matches := strings.Contains(strings.ToLower(entry.Device.FriendlyName), name) ||
+			strings.Contains(strings.ToLower(entry.Device.Hostname()), name) ||
+			strings.Contains(strings.ToLower(entry.Device.UniqueServiceName), name)
+		if matches {
 			return entry
 		}
 	}
@@ -286,18 +272,13 @@ func showDevices(cache map[string]*cast) {
 
 func (c *cast) String() string {
 	var info []string
-	host := c.Device.ApplicationUrl
-	if u, err := url.Parse(c.Device.ApplicationUrl); err == nil {
-		host = u.Hostname()
-	}
-	info = append(info, host)
 	if c.cached {
 		info = append(info, "cached")
 	}
 	if c.LastUsed {
 		info = append(info, "lastused")
 	}
-	return fmt.Sprintf("%-30q %s", c.Device.FriendlyName, strings.Join(info, " "))
+	return fmt.Sprintf("%-30q %-15s %s", c.Device.FriendlyName, c.Device.Hostname(), strings.Join(info, " "))
 }
 
 func launchYouTubeApp(selected *cast) (string, error) {
