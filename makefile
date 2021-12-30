@@ -1,27 +1,32 @@
 .POSIX:
+.PHONY: all build test fmt vet install uninstall clean
 
-GO = go
 VERSION = $(shell git describe --tags)
+GO      = go
+GOFLAGS = -ldflags="-X main.progVersion=$(VERSION)"
+PREFIX  = /usr/local
+BINARY  = ytcast
 
-all: generate fmt vet test build
+all: fmt vet test build
 
-run: generate
-	$(GO) $@ .
+build:
+	$(GO) build -o $(BINARY) $(GOFLAGS)
 
-build: generate
-	$(GO) $@ -ldflags="-X main.progVersion=$(VERSION)"
-
-test: generate
-	$(GO) $@ ./...
-
-generate:
-	$(GO) $@ ./...
+test:
+	$(GO) test ./...
 
 fmt:
-	$(GO) $@ ./...
+	$(GO) fmt ./...
 
 vet:
-	$(GO) $@ ./...
+	$(GO) vet ./...
+
+install: all
+	mkdir -p $(DESTDIR)$(PREFIX)/bin
+	install -m 755 $(BINARY) $(DESTDIR)$(PREFIX)/bin
+
+uninstall:
+	rm $(DESTDIR)$(PREFIX)/bin/$(BINARY)
 
 clean:
-	$(GO) $@ ./...
+	$(GO) clean ./...
