@@ -9,7 +9,7 @@ YouTube smartphone app:
 
 ![Play on TV button][0]
 
-(the [feature is also described here][1]).
+([the feature is also described here][1]).
 
 I don't use Chrome as my daily driver because of *reasons* and I tend to use my
 smartphone the least as possible when I'm at home... but still I want the "Play
@@ -25,15 +25,22 @@ usage
 
 https://user-images.githubusercontent.com/23704923/147848611-0d20563e-f656-487a-9774-9eb6feca1f58.mp4
 
-([video demo on YouTube][2]).
+([video demo on YouTube if above doesn't play][2]).
 
-the computer that runs `ytcast` and the target device need to be on the same
-network.
+- the computer running `ytcast` and the target device need to be on the same
+  network.
+- the target device should have the YouTube app already installed.
+- it also helps if the target device is already turned ON. `ytcast` supports
+  Wake-on-Lan, but it's still WIP and doesn't work very well (see TODO).
+
+run `ytcast -h` for the full usage, here I'll show the basic options.
+
+the `-n` (name) option selects the target device matching by name or hostname
+(ip):
 
     $ ytcast -n fire https://www.youtube.com/watch?v=dQw4w9WgXcQ
 
-the `-n` (name) option selects the target device matching by name or hostname
-(ip). to see the already discovered (cached) devices, run `ytcast` without any
+to see the already discovered (cached) devices, run `ytcast` without any
 option:
 
     $ ytcast
@@ -98,6 +105,9 @@ to see what's going on under the hood use the `-verbose` option:
 build and install
 -----------------
 
+a `go` compiler is required for building, `make` is also nice to have, the code
+has basically no dependency.
+
     $ git clone https://github.com/MarcoLucidi01/ytcast.git
     ...
     $ cd ytcast
@@ -113,6 +123,8 @@ usually install with:
     go build -o ytcast -ldflags="-X main.progVersion=v0.1.0-7-ge9c96d3"
     mkdir -p /home/marco/bin
     install -m 755 ytcast /home/marco/bin
+
+to uninstall run `make uninstall` (with the same `PREFIX` used for `install`).
 
 how it works
 ------------
