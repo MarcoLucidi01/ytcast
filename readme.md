@@ -23,6 +23,8 @@ workflow is "command-line centric" and `ytcast` fits well in my toolbox.
 usage
 -----
 
+https://user-images.githubusercontent.com/23704923/147848611-0d20563e-f656-487a-9774-9eb6feca1f58.mp4
+
 ([video demo on YouTube][2]).
 
 the computer that runs `ytcast` and the target device need to be on the same
