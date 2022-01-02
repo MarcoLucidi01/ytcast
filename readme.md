@@ -105,8 +105,7 @@ to see what's going on under the hood use the `-verbose` option:
 build and install
 -----------------
 
-a `go` compiler is required for building, `make` is also nice to have, the code
-has basically no dependency.
+a `go` compiler is required for building, `make` is also nice to have.
 
     $ git clone https://github.com/MarcoLucidi01/ytcast.git
     ...
@@ -129,13 +128,83 @@ to uninstall run `make uninstall` (with the same `PREFIX` used for `install`).
 how it works
 ------------
 
-TODO
+I've always been curious to know how my phone can find my TV on my home network
+and instruct it to start the YouTube app and play a video right away without
+basically any manual pairing.
 
-TODO can break at any time!
+I did some research and found about this nice little protocol called [DIAL
+(DIscovery And Launch)][6] developed by Netflix and Google which does the
+initial part i.e. allows second-screen devices (phone, laptop, etc..) to
+discover and launch apps on first-screen devices (TV, set-top, blu-ray, etc..).
+there is a 40 pages [specification][7] and a [reference implementation][8] for
+this protocol.
 
-TODO things I can test
+the discovery part of DIAL is actually performed using another protocol, [SSDP
+(Simple Service Discovery Protocol)][9], which in turn is part of [UPnP][10].
 
-TODO things I cannot test (chromecast)
+all this is not enough to play videos. once the YouTube TV app is started by
+DIAL, we need some other way to "tell" the app which video we want to play
+(actually DIAL allows to pass parameters to an app you want to launch, but this
+mechanism is not used by the YouTube TV app anymore).
+
+after a little more research, I found about the YouTube Lounge api which is used
+by Chrome and the YouTube smartphone app to remotely control the YouTube TV app.
+it allows to start playing videos, pause, unpause, skip, add videos to the queue
+and more. the api is **not documented** and understanding how it works it's not
+that easy and fun. luckily lots of people have already reverse engineered the
+thing (see THANKS) so all I had to do was taking the bits I needed to build
+`ytcast`.
+
+the bridge between DIAL and YouTube Lounge api is this `screenId` which as you
+can imagine is an identifier for your "screen" (TV app). DIAL allows to get
+information about the current "state" of an app on a particular device.  some
+fields of this state are required by DIAL, other fields are app specific (called
+additional data). `screenId` is a YouTube specific field that can be used to get
+a token for the YouTube Lounge api: with that token we can control the TV app
+via api calls.
+
+putting all together, what `ytcast` does is:
+
+1. search DIAL enabled devices on the local network (SSDP)
+2. get the state of the YouTube TV app on the target device (DIAL)
+3. if the app it's stopped, start it (DIAL)
+4. get the `screenId` of the app (DIAL)
+5. get an api token for that `screenId` (Lounge)
+6. call the api's "play video endpoint" passing the token and the urls of the
+   videos to play (Lounge)
+
+(there is a "devices cache" involved so `ytcast` won't necessarily do all these
+steps every time, also if the target device is turned off, `ytcast` tries to
+wake it up with [Wake-on-Lan][11]).
+
+as you maybe have already guessed, all this **can break at any time!** the
+weakest point is the YouTube Lounge api since it's **not documented** and
+`ytcast` depends heavily on it.
+
+**`ytcast` may not work at all on your setup!** I use and test `ytcast` with 2
+devices:
+
+- an Amazon Fire TV Stick
+- a LG Smart TV running WebOS
+
+that's all I have. `ytcast` works great with both these devices but I don't know
+if it will work well on different setups (it should, but I don't know for sure).
+if it doesn't work on your setup please [open an issue][12] describing your
+setup and attach a `-verbose` log so we can investigate what's wrong and
+hopefully fix it.
+
+also **chromecast**. I don't own a chromecast and `ytcast` probably won't work
+with chromecast because it doesn't use the DIAL protocol anymore (at least
+that's what I've read somewhere). `ytcast` (should) work any with DIAL enabled
+devices that supports the YouTube TV app.
+
+[6]: http://www.dial-multiscreen.org
+[7]: http://www.dial-multiscreen.org/dial-protocol-specification/DIAL-2ndScreenProtocol-2.2.1.pdf
+[8]: https://github.com/Netflix/dial-reference
+[9]: https://en.wikipedia.org/wiki/Simple_Service_Discovery_Protocol
+[10]: https://en.wikipedia.org/wiki/Universal_Plug_and_Play
+[11]: https://en.wikipedia.org/wiki/Wake-on-LAN
+[12]: https://github.com/MarcoLucidi01/ytcast/issues
 
 THANKS
 ------
