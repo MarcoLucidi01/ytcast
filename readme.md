@@ -151,7 +151,7 @@ after a little more research, I found about the YouTube Lounge api which is used
 by Chrome and the YouTube smartphone app to remotely control the YouTube TV app.
 it allows to start playing videos, pause, unpause, skip, add videos to the queue
 and more. the api is **not documented** and understanding how it works it's not
-that easy and fun. luckily lots of people have already reverse engineered the
+an easy and fun job. luckily lots of people have already reverse engineered the
 thing (see THANKS) so all I had to do was taking the bits I needed to build
 `ytcast`.
 
@@ -177,26 +177,24 @@ putting all together, what `ytcast` does is:
 steps every time, also if the target device is turned off, `ytcast` tries to
 wake it up with [Wake-on-Lan][11]).
 
-as you maybe have already guessed, all this **can break at any time!** the
-weakest point is the YouTube Lounge api since it's **not documented** and
-`ytcast` depends heavily on it.
-
-**`ytcast` may not work at all on your setup!** I use and test `ytcast` with 2
-devices:
+as you maybe have already guessed, all this **can stop working at any time!**
+the weakest point is the YouTube Lounge api since it's **not documented** and
+`ytcast` depends heavily on it. moreover, **`ytcast` may not work at all on your
+setup!** I use and test `ytcast` with 2 devices:
 
 - an Amazon Fire TV Stick
 - a LG Smart TV running WebOS
 
 that's all I have. `ytcast` works great with both these devices but I don't know
-if it will work well on different setups (it should, but I don't know for sure).
-if it doesn't work on your setup please [open an issue][12] describing your
-setup and attach a `-verbose` log so we can investigate what's wrong and
-hopefully fix it.
+if it will work well on setups different than mine (it should, but I don't know
+for sure). if it doesn't work on your setup please [open an issue][12]
+describing your setup and attach a `-verbose` log so we can investigate what's
+wrong and hopefully fix it.
 
-also **chromecast**. I don't own a chromecast and `ytcast` probably won't work
-with chromecast because it doesn't use the DIAL protocol anymore (at least
-that's what I've read somewhere). `ytcast` (should) work any with DIAL enabled
-devices that supports the YouTube TV app.
+also **Chromecast**. I don't own a Chromecast and `ytcast` probably won't work
+with Chromecast because it doesn't use the DIAL protocol anymore (at least
+that's what I've read somewhere). `ytcast` (should) work with any DIAL enabled
+device that supports the YouTube TV app.
 
 [6]: http://www.dial-multiscreen.org
 [7]: http://www.dial-multiscreen.org/dial-protocol-specification/DIAL-2ndScreenProtocol-2.2.1.pdf
@@ -209,7 +207,14 @@ devices that supports the YouTube TV app.
 THANKS
 ------
 
-TODO
+I would like to thank all the people whose work has helped me tremendously in
+building `ytcast`, especially the following projects/posts:
+
+- https://0x41.cf/automation/2021/03/02/google-assistant-youtube-smart-tvs.html
+- https://github.com/thedroidgeek/youtube-cast-automation-api
+- https://github.com/mutantmonkey/youtube-remote
+- https://bugs.xdavidhu.me/google/2021/04/05/i-built-a-tv-that-plays-all-of-your-private-youtube-videos
+- https://github.com/aykevl/plaincast
 
 TODO
 ----
@@ -226,5 +231,7 @@ other tools
 -----------
 
 TODO show case other command-line youtube tools I use
+
+---
 
 see license file for copyright and license details.
