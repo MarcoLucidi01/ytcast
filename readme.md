@@ -15,7 +15,8 @@ I don't use Chrome as my daily driver because of *reasons* and I tend to use my
 smartphone the least as possible when I'm at home... but still I want the "Play
 on TV" functionality to watch videos on the big television screen without having
 to search them with the remote! this is why I wrote this tool. also my computing
-workflow is "command-line centric" and `ytcast` fits well in my toolbox.
+workflow is "command-line centric" and `ytcast` fits well in my toolbox (see
+other tools).
 
 [0]: play-on-tv.png
 [1]: https://support.google.com/youtube/answer/7640706
@@ -230,7 +231,42 @@ TODO
 other tools
 -----------
 
-TODO show case other command-line youtube tools I use
+as I said earlier, my computing environment is very command-line centric and I'd
+like to showcase the other tools I use to enjoy a "no frills" YouTube experience
+from the terminal!
+
+- [`youtube-dl`][13] (actually [`yt-dlp`][14] these days) doesn't need
+  introduction, it's an awesome tool and it's well integrated with [`mpv`][15]
+  so I can watch videos without having my laptop fan spin like an airplane
+  engine thanks to the `mpv` config:
+
+      ytdl-format=bestvideo[height<=?1080][vcodec!=?vp9]+bestaudio/best
+
+- [`ytsearch`][16] is my clone of the initial version of [`ytfzf`][17]. it
+  allows to search and select videos urls from the command-line using the
+  wonderful [`fzf`][18] (fun fact: it's implemented basically as a single big
+  pipe ahah). you have already seen it in action in `ytcast` examples, but it
+  works great with `mpv` too:
+
+      $ ytsearch matrix 4 | xargs mpv
+      $ ytsearch 9 symphony | xargs mpv --no-video
+
+- [`ytxrss`][19] allows to extract the rss feed url of a YouTube channel
+  starting from a video or channel url. I use rss feeds ([`newsboat`][20]) to
+  keep up-to-date with *things* and I'm really glad YouTube still supports them
+  for channels updates. if I'm interested in a channel's future updates, what I
+  usually do is:
+
+      $ ytxrss https://www.youtube.com/user/Computerphile >> ~/.newsboat/urls
+
+[13]: https://github.com/ytdl-org/youtube-dl
+[14]: https://github.com/yt-dlp/yt-dlp
+[15]: https://github.com/mpv-player/mpv
+[16]: https://github.com/MarcoLucidi01/bin/blob/master/ytsearch
+[17]: https://github.com/pystardust/ytfzf
+[18]: https://github.com/junegunn/fzf
+[19]: https://github.com/MarcoLucidi01/bin/blob/master/ytxrss
+[20]: https://github.com/newsboat/newsboat
 
 ---
 
