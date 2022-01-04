@@ -31,7 +31,7 @@ https://user-images.githubusercontent.com/23704923/147848611-0d20563e-f656-487a-
 
 - the computer running `ytcast` and the target device need to be on the **same
   network**.
-- the target device should have the YouTube TV app already installed.
+- the target device should have the YouTube on TV app already installed.
 - it also helps if the target device is already turned ON. `ytcast` supports
   Wake-on-Lan, but it's still WIP and doesn't work very well (see [TODO][4]).
 
@@ -132,8 +132,8 @@ how it works
 ------------
 
 I've always been curious to know how my phone can find my TV on my home network
-and instruct it to start the YouTube app and play a video right away without
-basically any manual pairing.
+and instruct it to start the YouTube on TV app and play a video right away
+without basically any manual pairing.
 
 I did some research and found about this nice little protocol called [DIAL
 (DIscovery And Launch)][8] developed by Netflix and Google which does the
@@ -145,31 +145,31 @@ this protocol.
 the discovery part of DIAL is actually performed using another protocol, [SSDP
 (Simple Service Discovery Protocol)][11], which in turn is part of [UPnP][12].
 
-all this is not enough to play videos. once the YouTube TV app is started by
+all this is not enough to play videos. once the YouTube on TV app is started by
 DIAL, we need some other way to "tell" the app which video we want to play
 (actually DIAL allows to pass parameters to an app you want to launch, but this
-mechanism is not used by the YouTube TV app anymore).
+mechanism is not used by the YouTube on TV app anymore).
 
 after a little more research, I found about the YouTube Lounge api which is used
-by Chrome and the YouTube smartphone app to remotely control the YouTube TV app.
-it allows to start playing videos, pause, unpause, skip, add videos to the queue
-and more. the api is **not documented** and understanding how it works it's not
-an easy and fun job. luckily lots of people have already reverse engineered the
-thing (see [THANKS][13]) so all I had to do was taking the bits I needed to build
-`ytcast`.
+by Chrome and the YouTube smartphone app to remotely control the YouTube on TV
+app. it allows to start playing videos, pause, unpause, skip, add videos to the
+queue and more. the api is **not documented** and understanding how it works
+it's not an easy and fun job. luckily lots of people have already reverse
+engineered the thing (see [THANKS][13]) so all I had to do was taking the bits I
+needed to build `ytcast`.
 
 the bridge between DIAL and YouTube Lounge api is the `screenId` which as you
 can imagine is an identifier for your "screen" (TV app). DIAL allows to get
-information about the current "state" of an app on a particular device.  some
+information about the current "state" of an app on a particular device. some
 fields of this state are required by DIAL, other fields are app specific (called
 additional data). `screenId` is a YouTube specific field that can be used to get
-a token from the YouTube Lounge api: with that token we can control the TV app
-via api calls.
+a token from the YouTube Lounge api: with that token we can control the YouTube
+on TV app via api calls.
 
 putting all together, what `ytcast` does is:
 
 1. search DIAL enabled devices on the local network (SSDP)
-2. get the state of the YouTube TV app on the target device (DIAL)
+2. get the state of the YouTube on TV app on the target device (DIAL)
 3. if the app it's stopped, start it (DIAL)
 4. get the `screenId` of the app (DIAL)
 5. get a token for that `screenId` (Lounge)
@@ -197,7 +197,7 @@ wrong and hopefully fix it.
 also **Chromecast**. I don't own a Chromecast and `ytcast` probably won't work
 with Chromecast because it doesn't use the DIAL protocol anymore (at least
 that's what I've read somewhere). `ytcast` (should) work with any DIAL enabled
-device that supports the YouTube TV app.
+device that supports the YouTube on TV app.
 
 [8]: http://www.dial-multiscreen.org
 [9]: http://www.dial-multiscreen.org/dial-protocol-specification/DIAL-2ndScreenProtocol-2.2.1.pdf
