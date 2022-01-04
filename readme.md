@@ -273,4 +273,6 @@ from the terminal!
 
 ---
 
-see license file for copyright and license details.
+see [license file][50] for copyright and license details.
+
+[50]: license
