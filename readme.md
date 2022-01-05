@@ -229,7 +229,6 @@ TODO
 - [ ] allow to play videos from specific timestamp? might be useful.
 - [ ] allow `-s` to be used with `-l` and `-n` i.e. search and play.
 - [ ] fix ping and wakeup issue (see TODO in ytcast.go).
-- [ ] report error when more than one device matches `-n`.
 
 other tools
 -----------

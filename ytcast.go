@@ -40,6 +40,7 @@ var (
 	errNoDevFound      = errors.New("no device found")
 	errNoDevLastUsed   = errors.New("no device last used")
 	errNoDevMatch      = errors.New("no device matches")
+	errMoreDevMatch    = errors.New("more than one device matches")
 	errNoDevSelected   = errors.New("no device selected")
 	errNoLaunch        = errors.New("unable to launch app and get screenId")
 	errNoVideo         = errors.New("no video to play")
@@ -107,10 +108,11 @@ func run() error {
 	}
 
 	var selected *cast
+	var err error
 	switch {
 	case *flagName != "":
-		if selected = matchDevice(cache, *flagName); selected == nil {
-			return fmt.Errorf("%w %q", errNoDevMatch, *flagName)
+		if selected, err = matchOneDevice(cache, *flagName); err != nil {
+			return err
 		}
 	case *flagLastUsed:
 		if selected = findLastUsedDevice(cache); selected == nil {
@@ -123,7 +125,6 @@ func run() error {
 
 	videos := flag.Args()
 	if len(videos) == 0 || (len(videos) == 1 && videos[0] == "-") {
-		var err error
 		if videos, err = readVideosFromStdin(); err != nil {
 			return err
 		}
@@ -225,17 +226,28 @@ func discoverDevices(cache map[string]*cast, timeout time.Duration) error {
 	return nil
 }
 
-func matchDevice(cache map[string]*cast, name string) *cast {
-	name = strings.ToLower(strings.TrimSpace(name))
+func matchOneDevice(cache map[string]*cast, name string) (*cast, error) {
+	nameLow := strings.ToLower(strings.TrimSpace(name))
+	var matched []*cast
 	for _, entry := range cache {
-		matches := strings.Contains(strings.ToLower(entry.Device.FriendlyName), name) ||
-			strings.Contains(strings.ToLower(entry.Device.Hostname()), name) ||
-			strings.Contains(strings.ToLower(entry.Device.UniqueServiceName), name)
+		matches := strings.Contains(strings.ToLower(entry.Device.FriendlyName), nameLow) ||
+			strings.Contains(strings.ToLower(entry.Device.Hostname()), nameLow) ||
+			strings.Contains(strings.ToLower(entry.Device.UniqueServiceName), nameLow)
 		if matches {
-			return entry
+			matched = append(matched, entry)
 		}
 	}
-	return nil
+	if len(matched) == 1 {
+		return matched[0], nil
+	}
+	if len(matched) == 0 {
+		return nil, fmt.Errorf("%w %q", errNoDevMatch, name)
+	}
+	var matchedNames []string
+	for _, m := range matched {
+		matchedNames = append(matchedNames, fmt.Sprintf("%q %s", m.Device.FriendlyName, m.Device.Hostname()))
+	}
+	return nil, fmt.Errorf("%w %q: %s", errMoreDevMatch, name, strings.Join(matchedNames, ", "))
 }
 
 func findLastUsedDevice(cache map[string]*cast) *cast {
