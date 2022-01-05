@@ -12,6 +12,7 @@
 //   https://github.com/mutantmonkey/youtube-remote
 //   https://bugs.xdavidhu.me/google/2021/04/05/i-built-a-tv-that-plays-all-of-your-private-youtube-videos
 //   https://github.com/aykevl/plaincast
+//   https://github.com/ur1katz/casttube
 package youtube
 
 import (

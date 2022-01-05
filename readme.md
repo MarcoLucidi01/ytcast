@@ -219,6 +219,7 @@ building `ytcast`, especially the following projects/posts:
 - https://github.com/mutantmonkey/youtube-remote
 - https://bugs.xdavidhu.me/google/2021/04/05/i-built-a-tv-that-plays-all-of-your-private-youtube-videos
 - https://github.com/aykevl/plaincast
+- https://github.com/ur1katz/casttube
 
 TODO
 ----
@@ -229,6 +230,7 @@ TODO
 - [ ] allow to play videos from specific timestamp? might be useful.
 - [ ] allow `-s` to be used with `-l` and `-n` i.e. search and play.
 - [ ] fix ping and wakeup issue (see TODO in ytcast.go).
+- [ ] playlist urls don't work!
 
 other tools
 -----------
