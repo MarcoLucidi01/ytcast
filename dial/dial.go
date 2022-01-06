@@ -25,6 +25,8 @@ const (
 
 	devChanBufSize = 10
 
+	contentType = "text/plain; charset=utf-8"
+
 	wakeupBroadcastAddr = "255.255.255.255:9"
 	wakeupMinTimeout    = 10 * time.Second
 	wakeupMaxTimeout    = 2 * time.Minute
@@ -32,6 +34,7 @@ const (
 )
 
 var (
+	httpClient    = &http.Client{Timeout: 5 * time.Second}
 	wakeupParseRe = regexp.MustCompile(`MAC=(.+);Timeout=(\d+)`)
 
 	errNoAppUrl = errors.New("missing Application-URL header")
@@ -147,18 +150,18 @@ func doReq(method, url string, origin, body string) ([]byte, http.Header, error)
 		req.Header.Set("Origin", origin)
 	}
 	if body != "" {
-		req.Header.Set("Content-Type", "text/plain; charset=utf-8")
+		req.Header.Set("Content-Type", contentType)
 	}
 
 	log.Printf("%s %s", method, url)
-	resp, err := http.DefaultClient.Do(req)
+	resp, err := httpClient.Do(req)
 	if err != nil {
 		return nil, nil, err
 	}
 	defer resp.Body.Close()
 	respBody, err := ioutil.ReadAll(resp.Body)
 	if err == nil && (resp.StatusCode < 200 || resp.StatusCode > 299) {
-		err = fmt.Errorf("%s %s: %s: %w", req.Method, req.URL, resp.Status, errBadHttpStatus)
+		err = fmt.Errorf("%s %s: %s: %w", method, url, resp.Status, errBadHttpStatus)
 	}
 	return respBody, resp.Header, err
 }
@@ -269,8 +272,6 @@ func (d *Device) TryWakeup() error {
 
 // Ping checks if the Device is up and returns true if it is.
 func (d *Device) Ping() bool {
-	// TODO set a shorter timeout, my tv hangs the request for 30 seconds
-	// while it's "off", I guess because it's not *completely* off.
 	_, _, err := doReq("GET", d.Location, "", "")
 	if err != nil && errors.Is(err, errBadHttpStatus) {
 		err = nil

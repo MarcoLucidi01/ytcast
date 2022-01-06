@@ -52,6 +52,8 @@ const (
 )
 
 var (
+	httpClient = &http.Client{Timeout: 30 * time.Second}
+
 	errBadHttpStatus = errors.New("bad HTTP response status")
 	errNoScreens     = errors.New("missing screens array")
 	errNoToken       = errors.New("missing loungeToken")
@@ -232,7 +234,7 @@ func doReq(method, url string, query, body url.Values) ([]byte, error) {
 	req.Header.Set("User-Agent", userAgent)
 
 	log.Printf("%s %s", method, url)
-	resp, err := http.DefaultClient.Do(req)
+	resp, err := httpClient.Do(req)
 	if err != nil {
 		return nil, err
 	}
