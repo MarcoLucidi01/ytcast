@@ -23,8 +23,6 @@ import (
 const (
 	dialSearchTarget = "urn:dial-multiscreen-org:service:dial:1"
 
-	devChanBufSize = 10
-
 	contentType = "text/plain; charset=utf-8"
 
 	wakeupBroadcastAddr = "255.255.255.255:9"
@@ -97,13 +95,13 @@ type AppInfo struct {
 }
 
 // Discover discovers (unique) DIAL server devices on the network.
-func Discover(timeout time.Duration) (chan *Device, error) {
-	ssdpCh, err := mSearch(dialSearchTarget, timeout)
+func Discover(done chan struct{}, timeout time.Duration) (chan *Device, error) {
+	ssdpCh, err := mSearch(dialSearchTarget, done, timeout)
 	if err != nil {
 		return nil, err
 	}
 
-	devCh := make(chan *Device, devChanBufSize)
+	devCh := make(chan *Device)
 	var wg sync.WaitGroup
 	wg.Add(1)
 	go func() {
@@ -128,7 +126,10 @@ func Discover(timeout time.Duration) (chan *Device, error) {
 					return
 				}
 				log.Printf("discovered DIAL device %q", dev.FriendlyName)
-				devCh <- dev
+				select {
+				case devCh <- dev:
+				case <-done:
+				}
 			}(service)
 		}
 	}()

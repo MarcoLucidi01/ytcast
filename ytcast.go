@@ -211,7 +211,7 @@ func saveCache(fpath string, cache map[string]*cast) {
 }
 
 func discoverDevices(cache map[string]*cast, timeout time.Duration) error {
-	devCh, err := dial.Discover(timeout)
+	devCh, err := dial.Discover(nil, timeout)
 	if err != nil {
 		return fmt.Errorf("Discover: %w", err)
 	}

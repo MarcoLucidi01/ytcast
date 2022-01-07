@@ -23,7 +23,6 @@ const (
 	MsMinTimeout  = 1 * time.Second
 	MsMaxTimeout  = 5 * time.Second
 	msMaxRespSize = 4096
-	msChanBufSize = 10
 )
 
 var (
@@ -42,7 +41,7 @@ type ssdpService struct {
 }
 
 // mSearch discovers network services sending an SSDP M-SEARCH request.
-func mSearch(searchTarget string, timeout time.Duration) (chan *ssdpService, error) {
+func mSearch(searchTarget string, done chan struct{}, timeout time.Duration) (chan *ssdpService, error) {
 	timeout = clamp(timeout, MsMinTimeout, MsMaxTimeout)
 
 	laddr, err := sendMSearchReq(searchTarget, timeout)
@@ -55,7 +54,7 @@ func mSearch(searchTarget string, timeout time.Duration) (chan *ssdpService, err
 	}
 	conn.SetReadDeadline(time.Now().Add(timeout))
 
-	ch := make(chan *ssdpService, msChanBufSize)
+	ch := make(chan *ssdpService)
 	go func() {
 		defer conn.Close()
 		defer close(ch)
@@ -73,7 +72,11 @@ func mSearch(searchTarget string, timeout time.Duration) (chan *ssdpService, err
 				continue
 			}
 			log.Printf("discovered service %s", service.location)
-			ch <- service
+			select {
+			case ch <- service:
+			case <-done:
+				return
+			}
 		}
 	}()
 	return ch, nil
