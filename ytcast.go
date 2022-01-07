@@ -76,7 +76,7 @@ func main() {
 		fmt.Printf("%s %s\n", progName, progVersion)
 		return
 	}
-	log.SetFlags(log.Ltime | log.Lmicroseconds | log.Lshortfile)
+	log.SetFlags(log.Ltime | log.Lshortfile)
 	if !*flagVerbose {
 		log.SetOutput(ioutil.Discard)
 	}

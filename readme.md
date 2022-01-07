@@ -79,21 +79,21 @@ this makes it easy to combine `ytcast` with other tools like [`ytfzf`][5] or my
 to see what's going on under the hood use the `-verbose` option:
 
     $ ytsearch fireplace 10 hours | ytcast -n lg -verbose
-    21:13:08.724933 ytcast.go:82: ytcast v0.1.0-6-g8e6daeb
-    21:13:08.725031 ytcast.go:168: mkdir -p /home/marco/.cache/ytcast
-    21:13:08.725061 ytcast.go:177: loading cache /home/marco/.cache/ytcast/ytcast.json
-    21:13:08.725501 ytcast.go:319: reading videos from stdin
-    21:13:15.585240 dial.go:153: GET http://192.168.1.227:1754/
-    21:13:15.752052 dial.go:153: GET http://192.168.1.227:36866/apps/YouTube
-    21:13:15.951936 ytcast.go:293: "YouTube" is stopped on "[LG] webOS TV UM7100PLB"
-    21:13:15.951969 ytcast.go:306: launching "YouTube" on "[LG] webOS TV UM7100PLB"
-    21:13:15.951996 dial.go:153: POST http://192.168.1.227:36866/apps/YouTube
-    21:13:18.258981 dial.go:153: GET http://192.168.1.227:36866/apps/YouTube
-    21:13:18.276945 ytcast.go:293: "YouTube" is running on "[LG] webOS TV UM7100PLB"
-    21:13:18.277112 ytcast.go:358: requesting YouTube Lounge to play [cdKop6aixVE] on "[LG] webOS TV UM7100PLB"
-    21:13:18.277145 remote.go:233: POST https://www.youtube.com/api/lounge/bc/bind
-    21:13:18.717665 remote.go:233: POST https://www.youtube.com/api/lounge/bc/bind
-    21:13:18.800910 ytcast.go:197: saving cache /home/marco/.cache/ytcast/ytcast.json
+    21:13:08 ytcast.go:82: ytcast v0.1.0-6-g8e6daeb
+    21:13:08 ytcast.go:168: mkdir -p /home/marco/.cache/ytcast
+    21:13:08 ytcast.go:177: loading cache /home/marco/.cache/ytcast/ytcast.json
+    21:13:08 ytcast.go:319: reading videos from stdin
+    21:13:15 dial.go:153: GET http://192.168.1.227:1754/
+    21:13:15 dial.go:153: GET http://192.168.1.227:36866/apps/YouTube
+    21:13:15 ytcast.go:293: "YouTube" is stopped on "[LG] webOS TV UM7100PLB"
+    21:13:15 ytcast.go:306: launching "YouTube" on "[LG] webOS TV UM7100PLB"
+    21:13:15 dial.go:153: POST http://192.168.1.227:36866/apps/YouTube
+    21:13:18 dial.go:153: GET http://192.168.1.227:36866/apps/YouTube
+    21:13:18 ytcast.go:293: "YouTube" is running on "[LG] webOS TV UM7100PLB"
+    21:13:18 ytcast.go:358: requesting YouTube Lounge to play [cdKop6aixVE] on "[LG] webOS TV UM7100PLB"
+    21:13:18 remote.go:233: POST https://www.youtube.com/api/lounge/bc/bind
+    21:13:18 remote.go:233: POST https://www.youtube.com/api/lounge/bc/bind
+    21:13:18 ytcast.go:197: saving cache /home/marco/.cache/ytcast/ytcast.json
 
 (please run with `-verbose` and **attach the log** when reporting an [issue][7]).
 
