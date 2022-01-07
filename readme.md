@@ -32,8 +32,6 @@ https://user-images.githubusercontent.com/23704923/147848611-0d20563e-f656-487a-
 - the computer running `ytcast` and the target device need to be on the **same
   network**.
 - the target device should have the YouTube on TV app already installed.
-- it also helps if the target device is already turned ON. `ytcast` supports
-  Wake-on-Lan, but it's still WIP and doesn't work very well (see [TODO][4]).
 
 run `ytcast -h` for the full usage, here I'll show the basic options.
 
@@ -100,7 +98,6 @@ to see what's going on under the hood use the `-verbose` option:
 (please run with `-verbose` and **attach the log** when reporting an [issue][7]).
 
 [3]: https://www.youtube.com/watch?v=07aWOpi8DVk
-[4]: #todo
 [5]: https://github.com/pystardust/ytfzf
 [6]: https://github.com/MarcoLucidi01/bin/blob/master/ytsearch
 [7]: https://github.com/MarcoLucidi01/ytcast/issues
@@ -229,7 +226,6 @@ TODO
 - [ ] add flag to disconnect from device (`-d`)? not a priority.
 - [ ] allow to play videos from specific timestamp? might be useful.
 - [ ] allow `-s` to be used with `-l` and `-n` i.e. search and play.
-- [ ] fix ping and wakeup issue (see TODO in ytcast.go).
 - [ ] playlist urls don't work!
 
 other tools

@@ -28,7 +28,6 @@ const (
 	wakeupBroadcastAddr = "255.255.255.255:9"
 	wakeupMinTimeout    = 10 * time.Second
 	wakeupMaxTimeout    = 2 * time.Minute
-	wakeupCheckInterval = 2 * time.Second
 )
 
 var (
@@ -253,7 +252,9 @@ func (d *Device) Launch(appName, origin, payload string) (string, error) {
 }
 
 // TryWakeup tries to wake-on-lan the Device sending a magic packet to its MAC
-// address and waiting for it to become available.
+// address and waiting for it to become available. It eventually updates
+// Location and ApplicationUrl (re-Discover) because the Device may have changed
+// ip address and/or service ports.
 // Returns nil if it successfully wakes up the Device.
 func (d *Device) TryWakeup() error {
 	if d.Wakeup.Mac == "" {
@@ -262,10 +263,23 @@ func (d *Device) TryWakeup() error {
 	if err := wakeOnLan(d.Wakeup.Mac, wakeupBroadcastAddr); err != nil {
 		return err
 	}
+	done := make(chan struct{})
+	defer close(done)
 	timeout := clamp(d.Wakeup.Timeout, wakeupMinTimeout, wakeupMaxTimeout)
-	for start := time.Now(); time.Since(start) < timeout; time.Sleep(wakeupCheckInterval) {
+	for start := time.Now(); time.Since(start) < timeout; {
 		if d.Ping() {
 			return nil
+		}
+		// Ping() may have failed because the device changed ip or port.
+		devCh, err := Discover(done, MsMaxTimeout)
+		if err != nil {
+			return fmt.Errorf("Discover: %w", err)
+		}
+		for updatedDev := range devCh {
+			if updatedDev.UniqueServiceName == d.UniqueServiceName {
+				*d = *updatedDev
+				return nil
+			}
 		}
 	}
 	return errNoWakeup

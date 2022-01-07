@@ -134,12 +134,6 @@ func run() error {
 	}
 
 	if !selected.Device.Ping() {
-		// TODO this ping and wakeup method doesn't work very well, my
-		// tv changes the Location url and ApplicationUrl port at each
-		// restart, so after waking up, the ping still fails because it
-		// uses the old (cached) port but the tv is on!
-		// we should search the device again after it has been turned on
-		// to get updated urls
 		log.Printf("%q is not awake, trying waking it up...", selected.Device.FriendlyName)
 		if err := selected.Device.TryWakeup(); err != nil {
 			return fmt.Errorf("%q: TryWakeup: %w", selected.Device.FriendlyName, err)
