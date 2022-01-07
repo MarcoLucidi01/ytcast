@@ -285,11 +285,11 @@ func (d *Device) TryWakeup() error {
 	return errNoWakeup
 }
 
-// Ping checks if the Device is up and returns true if it is.
+// Ping returns true if the Device is up i.e. if it responds to requests.
 func (d *Device) Ping() bool {
-	_, _, err := doReq("GET", d.Location, "", "")
+	_, _, err := doReq("GET", d.ApplicationUrl, "", "")
 	if err != nil && errors.Is(err, errBadHttpStatus) {
-		err = nil
+		return true
 	}
 	return err == nil
 }
