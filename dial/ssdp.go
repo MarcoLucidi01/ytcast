@@ -20,9 +20,9 @@ import (
 const (
 	ssdpMulticastAddr = "239.255.255.250:1900"
 
-	MsMinTimeout  = 1 * time.Second
-	MsMaxTimeout  = 5 * time.Second
-	msMaxRespSize = 4096
+	MSearchMinTimeout  = 1 * time.Second
+	MSearchMaxTimeout  = 5 * time.Second
+	mSearchMaxRespSize = 4096
 )
 
 var (
@@ -42,7 +42,7 @@ type ssdpService struct {
 
 // mSearch discovers network services sending an SSDP M-SEARCH request.
 func mSearch(searchTarget string, done chan struct{}, timeout time.Duration) (chan *ssdpService, error) {
-	timeout = clamp(timeout, MsMinTimeout, MsMaxTimeout)
+	timeout = clamp(timeout, MSearchMinTimeout, MSearchMaxTimeout)
 
 	laddr, err := sendMSearchReq(searchTarget, timeout)
 	if err != nil {
@@ -59,7 +59,7 @@ func mSearch(searchTarget string, done chan struct{}, timeout time.Duration) (ch
 		defer conn.Close()
 		defer close(ch)
 
-		buf := make([]byte, msMaxRespSize)
+		buf := make([]byte, mSearchMaxRespSize)
 		for {
 			_, raddr, err := conn.ReadFrom(buf)
 			if err != nil {
