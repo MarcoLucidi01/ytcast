@@ -222,7 +222,6 @@ TODO
 ----
 
 - [ ] add flag to add videos to playing queue (`-a`).
-- [ ] add flag to clear devices cache (`-c`). can be used with other flags?
 - [ ] add flag to disconnect from device (`-d`)? not a priority.
 - [ ] allow to play videos from specific timestamp? might be useful.
 - [ ] allow `-s` to be used with `-l` and `-n` i.e. search and play.

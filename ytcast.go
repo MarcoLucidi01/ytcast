@@ -46,12 +46,13 @@ var (
 	errNoVideo         = errors.New("no video to play")
 	errUnknownAppState = errors.New("unknown app state")
 
-	flagLastUsed = flag.Bool("l", false, "select last used device")
-	flagName     = flag.String("n", "", "select device by substring of name, hostname (ip) or unique service name")
-	flagSearch   = flag.Bool("s", false, "search (discover) devices on the network and update cache")
-	flagTimeout  = flag.Duration("t", searchTimeout, fmt.Sprintf("search timeout (min %s max %s)", dial.MSearchMinTimeout, dial.MSearchMaxTimeout))
-	flagVerbose  = flag.Bool("verbose", false, "enable verbose logging")
-	flagVersion  = flag.Bool("v", false, "print program version")
+	flagClearCache = flag.Bool("c", false, "clear cache")
+	flagLastUsed   = flag.Bool("l", false, "select last used device")
+	flagName       = flag.String("n", "", "select device by substring of name, hostname (ip) or unique service name")
+	flagSearch     = flag.Bool("s", false, "search (discover) devices on the network and update cache")
+	flagTimeout    = flag.Duration("t", searchTimeout, fmt.Sprintf("search timeout (min %s max %s)", dial.MSearchMinTimeout, dial.MSearchMaxTimeout))
+	flagVerbose    = flag.Bool("verbose", false, "enable verbose logging")
+	flagVersion    = flag.Bool("v", false, "print program version")
 )
 
 // cast contains a dial.Device and the youtube.Remote connected to that Device.
@@ -65,7 +66,7 @@ type cast struct {
 
 func main() {
 	flag.Usage = func() {
-		fmt.Fprintf(flag.CommandLine.Output(), "usage: %s [-l|-n|-s|-t|-v|-verbose] [video...]\n\n", progName)
+		fmt.Fprintf(flag.CommandLine.Output(), "usage: %s [-c|-l|-n|-s|-t|-v|-verbose] [video...]\n\n", progName)
 		fmt.Fprintf(flag.CommandLine.Output(), "cast YouTube videos to your smart TV.\n\n")
 		flag.PrintDefaults()
 		fmt.Fprintf(flag.CommandLine.Output(), "\n%s\n", progRepo)
@@ -91,7 +92,10 @@ func main() {
 
 func run() error {
 	cacheFilePath := path.Join(mkCacheDir(), cacheFileName)
-	cache := loadCache(cacheFilePath)
+	cache := make(map[string]*cast)
+	if !*flagClearCache {
+		cache = loadCache(cacheFilePath)
+	}
 	defer saveCache(cacheFilePath, cache)
 
 	if len(cache) == 0 || *flagSearch {
