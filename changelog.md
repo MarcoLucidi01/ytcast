@@ -1,6 +1,14 @@
 changelog
 =========
 
+## v0.3.0
+
+2022-01-08
+
+- removed microseconds from `-verbose` log (`5b96d81`).
+- rediscover device after Wake-On-Lan since ip address and ports can change (`bff10f5`).
+- use `http.Client` with proper timeout (`e390f0b`).
+
 ## v0.2.0
 
 2022-01-05
