@@ -40,8 +40,7 @@ the `-n` (name) option selects the target device matching by name or hostname
 
     $ ytcast -n fire https://www.youtube.com/watch?v=dQw4w9WgXcQ
 
-to see the already discovered (cached) devices, run `ytcast` without any
-option:
+to see the already discovered (cached) devices, run `ytcast` without any option:
 
     $ ytcast
     "FireTVStick di Marco"         192.168.1.23    cached lastused
@@ -49,15 +48,15 @@ option:
     ytcast: no device selected
 
 to update the devices cache use the `-s` (search) option (it's implicit when the
-cache is empty):
+cache is empty or when `-n` doesn't match anything):
 
     $ ytcast -s
     "FireTVStick di Marco"         192.168.1.23    lastused
     "[LG] webOS TV UM7100PLB"      192.168.1.227   cached
 
-if your target device doesn't show up, you can try increasing the search
-timeout with the `-t` (timeout) option to give the device more time to respond
-to the query (default is 3 seconds):
+if your target device doesn't show up, you can try increasing the search timeout
+with the `-t` (timeout) option to give the device more time to respond to the
+query (default is 3 seconds):
 
     $ ytcast -s -t 5s
     "FireTVStick di Marco"         192.168.1.23    lastused
@@ -105,7 +104,8 @@ to see what's going on under the hood use the `-verbose` option:
 build and install
 -----------------
 
-a `go` compiler is required for building, `make` is also nice to have.
+a `go` compiler is required for building, `make` is also nice to have (binary
+releases will come someday).
 
     $ git clone https://github.com/MarcoLucidi01/ytcast.git
     ...
@@ -224,7 +224,6 @@ TODO
 - [ ] add flag to add videos to playing queue (`-a`).
 - [ ] add flag to disconnect from device (`-d`)? not a priority.
 - [ ] allow to play videos from specific timestamp? might be useful.
-- [ ] allow `-s` to be used with `-l` and `-n` i.e. search and play.
 - [ ] playlist urls don't work!
 
 other tools

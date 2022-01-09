@@ -102,26 +102,42 @@ func run() error {
 		if err := discoverDevices(cache, *flagTimeout); err != nil {
 			return err
 		}
-		if len(cache) == 0 {
-			return errNoDevFound
-		}
-		if *flagSearch {
-			showDevices(cache)
-			return nil
-		}
 	}
 
 	var selected *cast
 	var err error
 	switch {
 	case *flagName != "":
+		if selected, err = matchOneDevice(cache, *flagName); err == nil {
+			break
+		}
+		if !errors.Is(err, errNoDevMatch) {
+			return err
+		}
+		if err = discoverDevices(cache, *flagTimeout); err != nil {
+			return err
+		}
+		if len(cache) == 0 {
+			return errNoDevFound
+		}
 		if selected, err = matchOneDevice(cache, *flagName); err != nil {
 			return err
 		}
+
 	case *flagLastUsed:
 		if selected = findLastUsedDevice(cache); selected == nil {
 			return errNoDevLastUsed
 		}
+
+	case len(cache) == 0:
+		// this check is done here and NOT immediately after the first
+		// discoverDevices() to give a chance to rediscover in -n case.
+		return errNoDevFound
+
+	case *flagSearch:
+		showDevices(cache)
+		return nil
+
 	default:
 		showDevices(cache)
 		return errNoDevSelected
