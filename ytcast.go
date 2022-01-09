@@ -257,11 +257,12 @@ func matchOneDevice(cache map[string]*cast, name string) (*cast, error) {
 	if len(matched) == 0 {
 		return nil, fmt.Errorf("%w %q", errNoDevMatch, name)
 	}
-	var matchedNames []string
+	var matchedStr strings.Builder
 	for _, m := range matched {
-		matchedNames = append(matchedNames, fmt.Sprintf("%q %s", m.Device.FriendlyName, m.Device.Hostname()))
+		matchedStr.WriteRune('\n')
+		matchedStr.WriteString(m.String())
 	}
-	return nil, fmt.Errorf("%w %q: %s", errMoreDevMatch, name, strings.Join(matchedNames, ", "))
+	return nil, fmt.Errorf("%w %q:%s", errMoreDevMatch, name, matchedStr.String())
 }
 
 func findLastUsedDevice(cache map[string]*cast) *cast {
