@@ -35,32 +35,32 @@ https://user-images.githubusercontent.com/23704923/147848611-0d20563e-f656-487a-
 
 run `ytcast -h` for the full usage, here I'll show the basic options.
 
-the `-n` (name) option selects the target device matching by name or hostname
-(ip):
+the `-n` (name) option selects the target device matching by name, hostname
+(ip), or unique service name:
 
     $ ytcast -n fire https://www.youtube.com/watch?v=dQw4w9WgXcQ
 
 to see the already discovered (cached) devices, run `ytcast` without any option:
 
     $ ytcast
-    "FireTVStick di Marco"         192.168.1.23    cached lastused
-    "[LG] webOS TV UM7100PLB"      192.168.1.227   cached
+    28bc7426 192.168.1.35    "FireTVStick di Marco"         cached lastused
+    d0881fbe 192.168.1.227   "[LG] webOS TV UM7100PLB"      cached
     ytcast: no device selected
 
 to update the devices cache use the `-s` (search) option (it's implicit when the
 cache is empty or when `-n` doesn't match anything):
 
     $ ytcast -s
-    "FireTVStick di Marco"         192.168.1.23    lastused
-    "[LG] webOS TV UM7100PLB"      192.168.1.227   cached
+    28bc7426 192.168.1.35    "FireTVStick di Marco"         lastused
+    d0881fbe 192.168.1.227   "[LG] webOS TV UM7100PLB"      cached
 
 if your target device doesn't show up, you can try increasing the search timeout
 with the `-t` (timeout) option to give the device more time to respond to the
 query (default is 3 seconds):
 
     $ ytcast -s -t 5s
-    "FireTVStick di Marco"         192.168.1.23    lastused
-    "[LG] webOS TV UM7100PLB"      192.168.1.227   cached
+    28bc7426 192.168.1.35    "FireTVStick di Marco"         lastused
+    d0881fbe 192.168.1.227   "[LG] webOS TV UM7100PLB"      cached
 
 (remember that the computer and the target device must be on the same network).
 

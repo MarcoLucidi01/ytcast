@@ -304,7 +304,11 @@ func (c *cast) String() string {
 	if c.LastUsed {
 		info = append(info, "lastused")
 	}
-	return fmt.Sprintf("%-30q %-15s %s", c.Device.FriendlyName, c.Device.Hostname(), strings.Join(info, " "))
+	return fmt.Sprintf("%.8s %-15s %-30q %s",
+		strings.TrimPrefix(c.Device.UniqueServiceName, "uuid:"),
+		c.Device.Hostname(),
+		c.Device.FriendlyName,
+		strings.Join(info, " "))
 }
 
 func launchYouTubeApp(selected *cast) (string, error) {
