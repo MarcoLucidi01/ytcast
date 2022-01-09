@@ -29,7 +29,6 @@ const (
 	fallbackCacheDir = ".cache" // used if xdgCache is not set, stored in $HOME
 	cacheFileName    = progName + ".json"
 
-	searchTimeout       = 3 * time.Second
 	launchTimeout       = 1 * time.Minute
 	launchCheckInterval = 2 * time.Second
 )
@@ -50,7 +49,7 @@ var (
 	flagLastUsed   = flag.Bool("l", false, "select last used device")
 	flagName       = flag.String("n", "", "select device by substring of name, hostname (ip) or unique service name")
 	flagSearch     = flag.Bool("s", false, "search (discover) devices on the network and update cache")
-	flagTimeout    = flag.Duration("t", searchTimeout, fmt.Sprintf("search timeout (min %s max %s)", dial.MSearchMinTimeout, dial.MSearchMaxTimeout))
+	flagTimeout    = flag.Duration("t", dial.MSearchMinTimeout, fmt.Sprintf("search timeout (max %s)", dial.MSearchMaxTimeout))
 	flagVerbose    = flag.Bool("verbose", false, "enable verbose logging")
 	flagVersion    = flag.Bool("v", false, "print program version")
 )

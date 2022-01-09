@@ -271,7 +271,7 @@ func (d *Device) TryWakeup() error {
 			return nil
 		}
 		// Ping() may have failed because the device changed ip or port.
-		devCh, err := Discover(done, MSearchMaxTimeout)
+		devCh, err := Discover(done, MSearchMinTimeout+1*time.Second)
 		if err != nil {
 			return fmt.Errorf("Discover: %w", err)
 		}

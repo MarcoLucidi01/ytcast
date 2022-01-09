@@ -20,8 +20,11 @@ import (
 const (
 	ssdpMulticastAddr = "239.255.255.250:1900"
 
-	MSearchMinTimeout  = 1 * time.Second
-	MSearchMaxTimeout  = 5 * time.Second
+	mSearchMan = "ssdp:discover"
+	mSearchMx  = 3
+
+	MSearchMinTimeout  = time.Duration(mSearchMx)*time.Second + 1*time.Second
+	MSearchMaxTimeout  = 2 * time.Minute
 	mSearchMaxRespSize = 4096
 )
 
@@ -44,15 +47,31 @@ type ssdpService struct {
 func mSearch(searchTarget string, done chan struct{}, timeout time.Duration) (chan *ssdpService, error) {
 	timeout = clamp(timeout, MSearchMinTimeout, MSearchMaxTimeout)
 
-	laddr, err := sendMSearchReq(searchTarget, timeout)
+	maddr, err := net.ResolveUDPAddr("udp4", ssdpMulticastAddr)
 	if err != nil {
 		return nil, err
 	}
-	conn, err := net.ListenUDP("udp", laddr)
+
+	conn, err := net.ListenUDP("udp4", nil)
 	if err != nil {
 		return nil, err
 	}
-	conn.SetReadDeadline(time.Now().Add(timeout))
+	if err := conn.SetDeadline(time.Now().Add(timeout)); err != nil {
+		conn.Close() // can't defer before goroutine.
+		return nil, err
+	}
+
+	req := bytes.NewBufferString("M-SEARCH * HTTP/1.1\r\n")
+	fmt.Fprintf(req, "HOST: %s\r\n", ssdpMulticastAddr)
+	fmt.Fprintf(req, "MAN: %q\r\n", mSearchMan) // must be quoted
+	fmt.Fprintf(req, "ST: %s\r\n", searchTarget)
+	fmt.Fprintf(req, "MX: %d\r\n", mSearchMx)
+	req.WriteString("\r\n")
+	log.Printf("M-SEARCH udp %s ST %q MX %d timeout %s", ssdpMulticastAddr, searchTarget, mSearchMx, timeout)
+	if _, err := conn.WriteTo(req.Bytes(), maddr); err != nil {
+		conn.Close() // can't defer before goroutine.
+		return nil, err
+	}
 
 	ch := make(chan *ssdpService)
 	go func() {
@@ -90,28 +109,6 @@ func clamp(d, min, max time.Duration) time.Duration {
 		return max
 	}
 	return d
-}
-
-func sendMSearchReq(searchTarget string, timeout time.Duration) (*net.UDPAddr, error) {
-	log.Printf("M-SEARCH udp %s ST %q timeout %s", ssdpMulticastAddr, searchTarget, timeout)
-
-	req := bytes.NewBufferString("M-SEARCH * HTTP/1.1\r\n")
-	fmt.Fprintf(req, "HOST: %s\r\n", ssdpMulticastAddr)
-	fmt.Fprintf(req, "MAN: %q\r\n", "ssdp:discover") // must be quoted
-	fmt.Fprintf(req, "MX: %d\r\n", timeout/time.Second)
-	fmt.Fprintf(req, "ST: %s\r\n", searchTarget)
-	req.WriteString("\r\n")
-
-	conn, err := net.Dial("udp", ssdpMulticastAddr)
-	if err != nil {
-		return nil, err
-	}
-	defer conn.Close()
-
-	if _, err := conn.Write(req.Bytes()); err != nil {
-		return nil, err
-	}
-	return conn.LocalAddr().(*net.UDPAddr), nil
 }
 
 func parseMSearchResp(data []byte) (*ssdpService, error) {

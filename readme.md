@@ -56,9 +56,9 @@ cache is empty or when `-n` doesn't match anything):
 
 if your target device doesn't show up, you can try increasing the search timeout
 with the `-t` (timeout) option to give the device more time to respond to the
-query (default is 3 seconds):
+query:
 
-    $ ytcast -s -t 5s
+    $ ytcast -s -t 10s
     28bc7426 192.168.1.35    "FireTVStick di Marco"         lastused
     d0881fbe 192.168.1.227   "[LG] webOS TV UM7100PLB"      cached
 
