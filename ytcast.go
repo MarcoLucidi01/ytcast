@@ -30,7 +30,7 @@ const (
 	cacheFileName    = progName + ".json"
 
 	launchTimeout       = 1 * time.Minute
-	launchCheckInterval = 2 * time.Second
+	launchCheckInterval = 3 * time.Second
 )
 
 var (
