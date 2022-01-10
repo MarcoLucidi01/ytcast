@@ -251,7 +251,7 @@ func (d *Device) Launch(appName, origin, payload string) (string, error) {
 	return headers.Get("Location"), nil
 }
 
-// TryWakeup tries to wake-on-lan the Device sending a magic packet to its MAC
+// TryWakeup tries to Wake-On-Lan the Device sending magic packets to its MAC
 // address and waiting for it to become available. It eventually updates
 // Location and ApplicationUrl (re-Discover) because the Device may have changed
 // ip address and/or service ports.
@@ -260,13 +260,13 @@ func (d *Device) TryWakeup() error {
 	if d.Wakeup.Mac == "" {
 		return errNoMac
 	}
-	if err := wakeOnLan(d.Wakeup.Mac, wakeupBroadcastAddr); err != nil {
-		return err
-	}
 	done := make(chan struct{})
 	defer close(done)
-	timeout := clamp(d.Wakeup.Timeout, wakeupMinTimeout, wakeupMaxTimeout)
+	timeout := clamp(d.Wakeup.Timeout*2, wakeupMinTimeout, wakeupMaxTimeout)
 	for start := time.Now(); time.Since(start) < timeout; {
+		if err := wakeOnLan(d.Wakeup.Mac, wakeupBroadcastAddr); err != nil {
+			return err
+		}
 		if d.Ping() {
 			return nil
 		}
