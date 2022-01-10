@@ -1,6 +1,16 @@
 changelog
 =========
 
+## v0.4.0
+
+2022-01-10
+
+- various DIAL and SSDP implementation improvements (`1a4671e`, `c15daaa`, `5fdbcb1`).
+- print also initial part of USN (unique service name) when showing devices (`e24deb0`).
+- if `-n` doesn't match anything trigger a re-discover (`e4932b0`).
+- `-s` can now be used along with `-n` (`e4932b0`).
+- added `-c` (clear cache) flag (`d60cb9f`).
+
 ## v0.3.0
 
 2022-01-08
