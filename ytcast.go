@@ -34,7 +34,7 @@ const (
 )
 
 var (
-	progVersion = "develop" // set with -ldflags at build time
+	progVersion = "vX.Y.Z-dev" // set with -ldflags at build time
 
 	errNoDevFound      = errors.New("no device found")
 	errNoDevLastUsed   = errors.New("no device last used")
