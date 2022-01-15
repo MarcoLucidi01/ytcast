@@ -1,12 +1,13 @@
 #!/bin/sh
 # See license file for copyright and license details.
 
-# release: automate most part of creating a new version and release.
+# release: automate creation of a new vX.Y.Z tag version and release.
 
 set -e
 
 reltype="$1"
 relbranch="master"
+reldate="$(date +'%Y-%m-%d')"
 changelog="changelog.md"
 editor="vim +8"
 
@@ -15,46 +16,42 @@ die() {
         exit 1
 }
 
-case "$reltype" in
-"major" | "minor" | "patch")
-        ;;
-*)
-        die "unknown release type \"$reltype\"\nusage: release major|minor|patch"
-        ;;
-esac
-
-if [ "$(git branch --show-current)" != "$relbranch" ]; then
+if [ "$reltype" != "major" ] && [ "$reltype" != "minor" ] && [ "$reltype" != "patch" ]; then
+        die "unknown release type \"$reltype\"\nusage: ./release major|minor|patch"
+elif [ "$(git branch --show-current)" != "$relbranch" ]; then
         die "current branch is not $relbranch"
 elif [ -n "$(git status --short --porcelain)" ]; then
         die "working tree is not clean"
 fi
 
-version="$(git describe --tags --abbrev=0)"
-if ! echo "$version" | grep -q '^v[0-9]\+\.[0-9]\+\.[0-9]\+$'; then
-        die "\"$version\": current version does not match vX.Y.Z format"
+currversion="$(git describe --tags --abbrev=0)"
+if ! echo "$currversion" | grep -q '^v[0-9]\+\.[0-9]\+\.[0-9]\+$'; then
+        die "\"$currversion\": current tag version does not match vX.Y.Z format"
 fi
-version="$(echo "$version" \
-  | cut -c 2- \
-  | awk -v rel="$reltype" '
-     BEGIN { FS="."; OFS="." }
-     { printf "%s", "v" }
-     rel == "major" { print $1+1, 0, 0 }
-     rel == "minor" { print $1, $2+1, 0 }
-     rel == "patch" { print $1, $2, $3+1 }
+relversion="$(echo "$currversion" \
+ | cut -c 2- \
+ | awk -v rel="$reltype" '
+    BEGIN { FS="."; OFS="." }
+    { printf "%s", "v" }
+    rel == "major" { print $1+1, 0, 0 }
+    rel == "minor" { print $1, $2+1, 0 }
+    rel == "patch" { print $1, $2, $3+1 }
 ')"
 
-sed "4i ## $version\n\n$(date +'%Y-%m-%d')\n\n- WRITE CHANGELOG HERE\n" "$changelog" > "$changelog.tmp"
+sed "4i ## $relversion\n\n$reldate\n\n- WRITE CHANGELOG HERE (delete version to abort)\n" "$changelog" > "$changelog.tmp"
 $editor "$changelog.tmp"
-# TODO ensure that the changelog has been updated before proceeding?
+if ! grep -q "^## $relversion$" "$changelog.tmp"; then
+        die "changelog aborted"
+fi
 mv "$changelog.tmp" "$changelog"
 
 git add "$changelog"
-git commit --message="$changelog: $version"
-git tag "$version"
+git commit --message="$changelog: $relversion"
+git tag "$relversion"
 
 make all # embed new version with -ldflags
 
-printf "\nPLEASE MAKE SURE THAT EVERYTHING IS ALL RIGHT, --amend NOW IF YOU HAVE TO.\n"
+printf "\nplease make sure that everything is all right, --amend now if you have to.\n"
 while true; do
         printf "%s" "push to remote? [YES/NO] "
         read -r ans

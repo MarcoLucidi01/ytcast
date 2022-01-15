@@ -39,4 +39,5 @@ uninstall:
 	rm $(DESTDIR)$(PREFIX)/bin/$(BINARY)
 
 clean:
+	rm -rf *.tmp
 	$(GO) clean ./...
