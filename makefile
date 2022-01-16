@@ -1,17 +1,18 @@
 .POSIX:
-.PHONY: all build test fmt vet major-release minor-release patch-release install uninstall clean
+.PHONY: all build test fmt vet cross-build major-release minor-release patch-release install uninstall clean
 
-VERSION = $(shell git describe --tags)
-GO      = go
-GOFLAGS = -ldflags="-X main.progVersion=$(VERSION)"
-RELEASE = ./release
-PREFIX  = /usr/local
-BINARY  = ytcast
+VERSION  = $(shell git describe --tags)
+GO       = go
+GOFLAGS  = -ldflags="-X main.progVersion=$(VERSION)"
+RELEASE  = ./release
+PREFIX   = /usr/local
+PROGNAME = ytcast
+CROSSTARGETS = linux-386 linux-amd64 linux-arm linux-arm64
 
 all: fmt vet test build
 
 build:
-	$(GO) build -o $(BINARY) $(GOFLAGS)
+	$(GO) build $(GOFLAGS) -o $(PROGNAME)
 
 test:
 	$(GO) test ./...
@@ -21,6 +22,12 @@ fmt:
 
 vet:
 	$(GO) vet ./...
+
+cross-build: all
+	for target in $(CROSSTARGETS); do \
+		env $$(echo "$$target" | awk -F '-' '{ print "GOOS="$$1, "GOARCH="$$2 }') \
+			$(GO) build $(GOFLAGS) -o "$(PROGNAME)-$(VERSION)-$$target"; \
+	done
 
 major-release: all
 	$(RELEASE) major
@@ -33,11 +40,11 @@ patch-release: all
 
 install: all
 	mkdir -p $(DESTDIR)$(PREFIX)/bin
-	install -m 755 $(BINARY) $(DESTDIR)$(PREFIX)/bin
+	install -m 755 $(PROGNAME) $(DESTDIR)$(PREFIX)/bin
 
 uninstall:
-	rm $(DESTDIR)$(PREFIX)/bin/$(BINARY)
+	rm $(DESTDIR)$(PREFIX)/bin/$(PROGNAME)
 
 clean:
-	rm -rf *.tmp
 	$(GO) clean ./...
+	rm -rf *.tmp $(PROGNAME)-v*
