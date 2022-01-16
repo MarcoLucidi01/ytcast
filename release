@@ -8,6 +8,9 @@ set -e
 reltype="$1"
 relbranch="master"
 reldate="$(date +'%Y-%m-%d')"
+progname="ytcast"
+license="license"
+readme="readme.md"
 changelog="changelog.md"
 editor="vim +8"
 
@@ -49,7 +52,19 @@ git add "$changelog"
 git commit --message="$changelog: $relversion"
 git tag "$relversion"
 
-make all # embed new version with -ldflags
+make clean
+make cross-build
+mkdir "archive.tmp"
+cp "$license" "$readme" "$changelog" "archive.tmp"
+for binname in "$progname-$relversion-"*; do
+        # this doesn't consider binary name extensions like .exe
+        mv "$binname" "archive.tmp/$progname"
+        mv "archive.tmp" "$binname"
+        tar -czf "$binname.tar.gz" "$binname"
+        sha256sum "$binname.tar.gz" >> "$progname-$relversion-sha256-checksums.txt"
+        mv "$binname" "archive.tmp"
+done
+rm -rf "archive.tmp"
 
 printf "\nplease make sure that everything is all right, --amend now if you have to.\n"
 while true; do
@@ -68,4 +83,5 @@ done
 git push
 git push --tags
 
-# TODO upload binary release via github api
+# TODO create release via github api
+# TODO upload binary packages via github api
