@@ -15,8 +15,8 @@ license="license"
 readme="readme.md"
 changelog="changelog.md"
 changelogurl="https://github.com/$ghuser/$progname/blob/master/$changelog"
-editor="vim +8"
-netrccmd="gpg --quiet --decrypt $HOME/.netrc.gpg" # for curl --netrc-file
+editorcmd="vim +8"
+netrccmd="gpg --quiet --decrypt $HOME/.netrc.gpg" # for curl --netrc-file /dev/stdin
 
 die() {
         echo "error:" "$@" >&2
@@ -46,7 +46,7 @@ relversion="$(echo "$currversion" \
 ')"
 
 sed "4i ## $relversion\n\n$reldate\n\n- WRITE CHANGELOG HERE (delete version to abort)\n" "$changelog" > "$changelog.tmp"
-$editor "$changelog.tmp"
+$editorcmd "$changelog.tmp"
 if ! grep -q "^## $relversion$" "$changelog.tmp"; then
         die "changelog aborted"
 fi
@@ -87,15 +87,24 @@ done
 git push
 git push --tags
 
-curl() {
-        $netrccmd | command curl --netrc-file /dev/stdin --silent --show-error --fail -H "Accept: application/vnd.github.v3+json" "$@"
+ghpost() {
+        $netrccmd | curl --netrc-file /dev/stdin --silent --show-error --fail \
+         -X POST \
+         -H "Accept: application/vnd.github.v3+json" \
+         -H "Content-Type: $1" \
+         --data-binary "$2" \
+         "$3"
 }
 
-relinfojson="$(curl -X POST \
- -H 'Content-Type: application/json' \
- -d "$(printf '{"tag_name": "%s", "name": "%s", "body": "[changelog](%s#%s)"}' \
-              "$relversion" "$relversion" "$changelogurl" "$(echo "$relversion" | tr -d '.')")" \
- "$relapiurl"
-)"
+reldata="$(jq -n -c --arg relversion "$relversion" --arg changelogurl "$changelogurl" \
+'{
+    "tag_name": $relversion,
+    "name": $relversion,
+    "body": "[changelog](\($changelogurl)#\($relversion | gsub("\\."; "")))"
+}')"
+relinfo="$(ghpost "application/json" "$reldata" "$relapiurl")"
 
-# TODO upload binary packages via github api
+reluploadurl="$(echo "$relinfo" | jq -r '.upload_url' | sed 's/{.*$//')"
+for asset in "$progname-$relversion-"*".tar.gz" "$progname-$relversion-"*"-checksums.txt"; do
+        assetinfo="$(ghpost "$(file --brief --mime-type "$asset")" "@$asset" "$reluploadurl?name=$asset")"
+done
