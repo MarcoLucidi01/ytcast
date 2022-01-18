@@ -63,6 +63,20 @@ git add "$changelog"
 git commit --message="$changelog: $relversion"
 git tag "$relversion"
 
+echo "please make sure that everything is all right, --amend now if you have to."
+while true; do
+        printf "push to remote and create new release? [YES/NO] "
+        read -r ans
+        case "$ans" in
+        "YES")
+                break
+                ;;
+        "n" | "N" | "no" | "NO" | "No" | "nO")
+                die "push aborted"
+                ;;
+        esac
+done
+
 log "building binaries"
 make clean
 make cross-build
@@ -80,20 +94,6 @@ for binname in "$progname-$relversion-"*; do
         log "created $binname.tar.gz"
 done
 rm -rf "archive.tmp"
-
-echo "please make sure that everything is all right, --amend now if you have to."
-while true; do
-        printf "push to remote and create new release? [YES/NO] "
-        read -r ans
-        case "$ans" in
-        "YES")
-                break
-                ;;
-        "n" | "N" | "no" | "NO" | "No" | "nO")
-                die "push aborted"
-                ;;
-        esac
-done
 
 log "pushing to remote"
 git push
