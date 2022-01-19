@@ -1,6 +1,19 @@
 changelog
 =========
 
+## v0.5.0
+
+2022-01-19
+
+- added a `release` script to automatically create new tag versions and GitHub
+  releases (this release is actually the first one made with this script so it's
+  kind of a final test for it).
+- pre-compiled binaries for different architectures are built with the new
+  `makefile` target `cross-build` (`34fcee5`) and are attached to the GitHub
+  release (`7d3910a`).
+- all the binaries built with the `makefile` are now statically linked and
+  stripped (`626dc57`).
+
 ## v0.4.0
 
 2022-01-10
