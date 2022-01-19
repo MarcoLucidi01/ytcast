@@ -3,7 +3,7 @@
 
 VERSION  = $(shell git describe --tags)
 GO       = go
-GOFLAGS  = -ldflags="-X main.progVersion=$(VERSION)"
+GOFLAGS  = -trimpath -tags netgo,osusergo -ldflags="-w -s -X main.progVersion=$(VERSION)"
 RELEASE  = ./release
 PREFIX   = /usr/local
 PROGNAME = ytcast
