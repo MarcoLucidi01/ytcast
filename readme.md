@@ -101,11 +101,13 @@ to see what's going on under the hood use the `-verbose` option:
 [6]: https://github.com/MarcoLucidi01/bin/blob/master/ytsearch
 [7]: https://github.com/MarcoLucidi01/ytcast/issues
 
-build and install
------------------
+install
+-------
 
-a `go` compiler is required for building, `make` is also nice to have (binary
-releases will come someday).
+you can either get a pre-compiled binary from the [latest release][4] assets and
+copy it anywhere in your `$PATH` or you can compile from source.
+
+a `go` compiler and `make` are required for building:
 
     $ git clone https://github.com/MarcoLucidi01/ytcast.git
     ...
@@ -124,6 +126,8 @@ usually install with:
     install -m 755 ytcast /home/marco/bin
 
 to uninstall run `make uninstall` (with the same `PREFIX` used for `install`).
+
+[4]: https://github.com/MarcoLucidi01/ytcast/releases/latest
 
 how it works
 ------------
@@ -225,6 +229,7 @@ TODO
 - [ ] add flag to disconnect from device (`-d`)? not a priority.
 - [ ] allow to play videos from specific timestamp? might be useful.
 - [ ] playlist urls don't work!
+- [ ] add example of installing pre-compiled binary.
 
 other tools
 -----------
