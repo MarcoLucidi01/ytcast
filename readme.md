@@ -225,11 +225,13 @@ building `ytcast`, especially the following projects/posts:
 TODO
 ----
 
-- [ ] add flag to add videos to playing queue (`-a`).
-- [ ] add flag to disconnect from device (`-d`)? not a priority.
-- [ ] allow to play videos from specific timestamp? might be useful.
+- [ ] add flag to "add only" videos to the queue (`-a`) without changing what's currently playing.
+- [ ] allow to play videos from specific timestamp (at least the first video).
 - [ ] playlist urls don't work!
 - [ ] add example of installing pre-compiled binary.
+- [ ] rename `-n` to `-d` (but keep `-n` also because it's used in the video demo).
+- [ ] rename `-l` to `-p`.
+- [ ] use `-l` to just list cached devices without getting `no device selected` error.
 
 other tools
 -----------
