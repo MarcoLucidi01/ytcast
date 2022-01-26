@@ -27,7 +27,7 @@ usage
 
 https://user-images.githubusercontent.com/23704923/147848611-0d20563e-f656-487a-9774-9eb6feca1f58.mp4
 
-([video demo on YouTube if above doesn't play][3]).
+([video demo on YouTube if above doesn't play][10]).
 
 - the computer running `ytcast` and the target device need to be on the **same
   network**.
@@ -72,8 +72,8 @@ to cast to the last used device use the `-l` option:
 
     $ ytcast -n lg < watchlist
 
-this makes it easy to combine `ytcast` with other tools like [`ytfzf`][5] or my
-`ytfzf` clone [`ytsearch`][6].
+this makes it easy to combine `ytcast` with other tools like [`ytfzf`][11] or my
+`ytfzf` clone [`ytsearch`][12].
 
 to see what's going on under the hood use the `-verbose` option:
 
@@ -94,17 +94,17 @@ to see what's going on under the hood use the `-verbose` option:
     21:13:18 remote.go:233: POST https://www.youtube.com/api/lounge/bc/bind
     21:13:18 ytcast.go:197: saving cache /home/marco/.cache/ytcast/ytcast.json
 
-(please run with `-verbose` and **attach the log** when reporting an [issue][7]).
+(please run with `-verbose` and **attach the log** when reporting an [issue][13]).
 
-[3]: https://www.youtube.com/watch?v=07aWOpi8DVk
-[5]: https://github.com/pystardust/ytfzf
-[6]: https://github.com/MarcoLucidi01/bin/blob/master/ytsearch
-[7]: https://github.com/MarcoLucidi01/ytcast/issues
+[10]: https://www.youtube.com/watch?v=07aWOpi8DVk
+[11]: https://github.com/pystardust/ytfzf
+[12]: https://github.com/MarcoLucidi01/bin/blob/master/ytsearch
+[13]: https://github.com/MarcoLucidi01/ytcast/issues
 
 install
 -------
 
-you can either get a pre-compiled binary from the [latest release][4] assets and
+you can either get a pre-compiled binary from the [latest release][20] assets and
 copy it anywhere in your `$PATH` or you can compile from source.
 
 a `go` compiler and `make` are required for building:
@@ -127,7 +127,7 @@ usually install with:
 
 to uninstall run `make uninstall` (with the same `PREFIX` used for `install`).
 
-[4]: https://github.com/MarcoLucidi01/ytcast/releases/latest
+[20]: https://github.com/MarcoLucidi01/ytcast/releases/latest
 
 how it works
 ------------
@@ -137,14 +137,14 @@ and instruct it to start the YouTube on TV app and play a video right away
 without basically any manual pairing.
 
 I did some research and found about this nice little protocol called [DIAL
-(DIscovery And Launch)][8] developed by Netflix and Google which does the
+(DIscovery And Launch)][30] developed by Netflix and Google which does the
 initial part i.e. allows second-screen devices (phone, laptop, etc..) to
 discover and launch apps on first-screen devices (TV, set-top, blu-ray, etc..).
-there is a 40 pages [specification][9] and a [reference implementation][10] for
+there is a 40 pages [specification][31] and a [reference implementation][32] for
 this protocol.
 
 the discovery part of DIAL is actually performed using another protocol, [SSDP
-(Simple Service Discovery Protocol)][11], which in turn is part of [UPnP][12].
+(Simple Service Discovery Protocol)][33], which in turn is part of [UPnP][34].
 
 all this is not enough to play videos. once the YouTube on TV app is started by
 DIAL, we need some other way to "tell" the app which video we want to play
@@ -156,7 +156,7 @@ by Chrome and the YouTube smartphone app to remotely control the YouTube on TV
 app. it allows to start playing videos, pause, unpause, skip, add videos to the
 queue and more. the api is **not documented** and understanding how it works
 it's not an easy and fun job. luckily lots of people have already reverse
-engineered the thing (see [THANKS][13]) so all I had to do was taking the bits I
+engineered the thing (see [THANKS][35]) so all I had to do was taking the bits I
 needed to build `ytcast`.
 
 the bridge between DIAL and YouTube Lounge api is the `screenId` which as you
@@ -179,7 +179,7 @@ putting all together, what `ytcast` does is:
 
 (there is a "devices cache" involved so `ytcast` won't necessarily do all these
 steps every time, also if the target device is turned off, `ytcast` tries to
-wake it up with [Wake-on-Lan][14]).
+wake it up with [Wake-on-Lan][36]).
 
 as you maybe have already guessed, all this **can stop working at any time!**
 the weakest point is the YouTube Lounge api since it's **not documented** and
@@ -191,7 +191,7 @@ setup!** I use and test `ytcast` with 2 devices:
 
 that's all I have. `ytcast` works great with both these devices but I don't know
 if it will work well on setups different than mine (it should, but I don't know
-for sure). if it doesn't work on your setup please [open an issue][15]
+for sure). if it doesn't work on your setup please [open an issue][37]
 describing your setup and attach a `-verbose` log so we can investigate what's
 wrong and hopefully fix it.
 
@@ -200,14 +200,14 @@ with Chromecast because it doesn't use the DIAL protocol anymore (at least
 that's what I've read somewhere). `ytcast` (should) work with any DIAL enabled
 device that supports the YouTube on TV app.
 
-[8]: http://www.dial-multiscreen.org
-[9]: http://www.dial-multiscreen.org/dial-protocol-specification/DIAL-2ndScreenProtocol-2.2.1.pdf
-[10]: https://github.com/Netflix/dial-reference
-[11]: https://en.wikipedia.org/wiki/Simple_Service_Discovery_Protocol
-[12]: https://en.wikipedia.org/wiki/Universal_Plug_and_Play
-[13]: #thanks
-[14]: https://en.wikipedia.org/wiki/Wake-on-LAN
-[15]: https://github.com/MarcoLucidi01/ytcast/issues
+[30]: http://www.dial-multiscreen.org
+[31]: http://www.dial-multiscreen.org/dial-protocol-specification/DIAL-2ndScreenProtocol-2.2.1.pdf
+[32]: https://github.com/Netflix/dial-reference
+[33]: https://en.wikipedia.org/wiki/Simple_Service_Discovery_Protocol
+[34]: https://en.wikipedia.org/wiki/Universal_Plug_and_Play
+[35]: #thanks
+[36]: https://en.wikipedia.org/wiki/Wake-on-LAN
+[37]: https://github.com/MarcoLucidi01/ytcast/issues
 
 THANKS
 ------
@@ -238,38 +238,38 @@ as I said earlier, my computing environment is very command-line centric and I'd
 like to showcase the other tools I use to enjoy a "no frills" YouTube experience
 from the terminal!
 
-- [`youtube-dl`][16] (actually [`yt-dlp`][17] these days) doesn't need
-  introduction, it's an awesome tool and it's well integrated with [`mpv`][18]
+- [`youtube-dl`][40] (actually [`yt-dlp`][41] these days) doesn't need
+  introduction, it's an awesome tool and it's well integrated with [`mpv`][42]
   so I can watch videos with my favorite player without having my laptop fan
   spin like an airplane engine thanks to this `mpv` config:
 
       ytdl-format=bestvideo[height<=?1080][vcodec!=?vp9]+bestaudio/best
 
-- [`ytsearch`][19] is my clone of the initial version of [`ytfzf`][20]. it
+- [`ytsearch`][43] is my clone of the initial version of [`ytfzf`][44]. it
   allows to search and select video urls from the command-line using the
-  wonderful [`fzf`][21] (fun fact: it's implemented basically as a single big
+  wonderful [`fzf`][45] (fun fact: it's implemented basically as a single big
   pipe ahah). you have already seen it in action in `ytcast` examples, but it
   works great with `mpv` too:
 
       $ ytsearch matrix 4 | xargs mpv
       $ ytsearch 9 symphony | xargs mpv --no-video
 
-- [`ytxrss`][22] allows to extract the rss feed url of a YouTube channel
-  starting from a video or channel url. I use rss feeds ([`newsboat`][23]) to
+- [`ytxrss`][46] allows to extract the rss feed url of a YouTube channel
+  starting from a video or channel url. I use rss feeds ([`newsboat`][47]) to
   keep up-to-date with *things* and I'm really glad YouTube still supports them
   for channel uploads. if I'm interested in a channel's future uploads, what I
   usually do is:
 
       $ ytxrss https://www.youtube.com/user/Computerphile >> ~/.newsboat/urls
 
-[16]: https://github.com/ytdl-org/youtube-dl
-[17]: https://github.com/yt-dlp/yt-dlp
-[18]: https://github.com/mpv-player/mpv
-[19]: https://github.com/MarcoLucidi01/bin/blob/master/ytsearch
-[20]: https://github.com/pystardust/ytfzf
-[21]: https://github.com/junegunn/fzf
-[22]: https://github.com/MarcoLucidi01/bin/blob/master/ytxrss
-[23]: https://github.com/newsboat/newsboat
+[40]: https://github.com/ytdl-org/youtube-dl
+[41]: https://github.com/yt-dlp/yt-dlp
+[42]: https://github.com/mpv-player/mpv
+[43]: https://github.com/MarcoLucidi01/bin/blob/master/ytsearch
+[44]: https://github.com/pystardust/ytfzf
+[45]: https://github.com/junegunn/fzf
+[46]: https://github.com/MarcoLucidi01/bin/blob/master/ytxrss
+[47]: https://github.com/newsboat/newsboat
 
 ---
 
