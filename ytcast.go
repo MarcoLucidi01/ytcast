@@ -366,8 +366,6 @@ func playVideos(selected *cast, screenId string, videos []string) error {
 		log.Println("screenId changed")
 		doConnect = true
 	case selected.Remote.Expired():
-		// TODO not sure if after refreshing the token, the Remote can
-		// actually be used again, I have to test.
 		log.Println("LoungeToken expired, trying refreshing it")
 		if err := selected.Remote.RefreshToken(); err != nil {
 			log.Printf("RefreshToken: %s", err)
