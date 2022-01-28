@@ -22,6 +22,16 @@ workflow is "command-line centric" and `ytcast` fits well in my toolbox (see
 [1]: https://support.google.com/youtube/answer/7640706
 [2]: #other-tools
 
+contents
+--------
+
+- [usage](#usage)
+- [install](#install)
+- [how it works](#how-it-works)
+- [THANKS](#thanks)
+- [TODO](#todo)
+- [other tools](#other-tools)
+
 usage
 -----
 
