@@ -42,12 +42,12 @@ if ! echo "$currversion" | grep -q '^v[0-9]\+\.[0-9]\+\.[0-9]\+$'; then
 fi
 relversion="$(echo "$currversion" \
  | cut -c 2- \
- | awk -v rel="$reltype" '
+ | awk -v "reltype=$reltype" '
     BEGIN { FS="."; OFS="." }
     { printf "%s", "v" }
-    rel == "major" { print $1+1, 0, 0 }
-    rel == "minor" { print $1, $2+1, 0 }
-    rel == "patch" { print $1, $2, $3+1 }
+    reltype == "major" { print $1+1, 0, 0 }
+    reltype == "minor" { print $1, $2+1, 0 }
+    reltype == "patch" { print $1, $2, $3+1 }
 ')"
 log "new release version is $relversion"
 
