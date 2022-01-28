@@ -51,12 +51,11 @@ the `-d` (device) option selects the target device matching by name, hostname
 
     $ ytcast -d fire https://www.youtube.com/watch?v=dQw4w9WgXcQ
 
-to see the already discovered (cached) devices, run `ytcast` without any option:
+to see the already discovered (cached) devices use the `-l` (list) option:
 
-    $ ytcast
+    $ ytcast -l
     28bc7426 192.168.1.35    "FireTVStick di Marco"         cached lastused
     d0881fbe 192.168.1.227   "[LG] webOS TV UM7100PLB"      cached
-    ytcast: no device selected
 
 to update the devices cache use the `-s` (search) option (it's implicit when the
 cache is empty or when `-d` doesn't match anything):
@@ -251,7 +250,6 @@ TODO
 - [ ] add flag to "add only" videos to the queue (`-a`) without changing what's currently playing.
 - [ ] allow to play videos from specific timestamp (at least the first video).
 - [ ] playlist urls don't work!
-- [ ] use `-l` to just list cached devices without getting `no device selected` error.
 
 other tools
 -----------
