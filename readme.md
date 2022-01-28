@@ -46,10 +46,10 @@ usage
 
 run `ytcast -h` for the full usage, here I'll show the basic options.
 
-the `-n` (name) option selects the target device matching by name, hostname
+the `-d` (device) option selects the target device matching by name, hostname
 (ip), or unique service name:
 
-    $ ytcast -n fire https://www.youtube.com/watch?v=dQw4w9WgXcQ
+    $ ytcast -d fire https://www.youtube.com/watch?v=dQw4w9WgXcQ
 
 to see the already discovered (cached) devices, run `ytcast` without any option:
 
@@ -59,7 +59,7 @@ to see the already discovered (cached) devices, run `ytcast` without any option:
     ytcast: no device selected
 
 to update the devices cache use the `-s` (search) option (it's implicit when the
-cache is empty or when `-n` doesn't match anything):
+cache is empty or when `-d` doesn't match anything):
 
     $ ytcast -s
     28bc7426 192.168.1.35    "FireTVStick di Marco"         lastused
@@ -81,14 +81,14 @@ to cast to the last used device use the `-l` option:
 
 `ytcast` can also read video urls (or ids) from `stdin` one per line:
 
-    $ ytcast -n lg < watchlist
+    $ ytcast -d lg < watchlist
 
 this makes it easy to combine `ytcast` with other tools like [`ytfzf`][11] or my
 `ytfzf` clone [`ytsearch`][12].
 
 to see what's going on under the hood use the `-verbose` option:
 
-    $ ytsearch fireplace 10 hours | ytcast -n lg -verbose
+    $ ytsearch fireplace 10 hours | ytcast -d lg -verbose
     21:13:08 ytcast.go:82: ytcast v0.1.0-6-g8e6daeb
     21:13:08 ytcast.go:168: mkdir -p /home/marco/.cache/ytcast
     21:13:08 ytcast.go:177: loading cache /home/marco/.cache/ytcast/ytcast.json
@@ -251,7 +251,6 @@ TODO
 - [ ] add flag to "add only" videos to the queue (`-a`) without changing what's currently playing.
 - [ ] allow to play videos from specific timestamp (at least the first video).
 - [ ] playlist urls don't work!
-- [ ] rename `-n` to `-d` (but keep `-n` also because it's used in the video demo).
 - [ ] rename `-l` to `-p`.
 - [ ] use `-l` to just list cached devices without getting `no device selected` error.
 

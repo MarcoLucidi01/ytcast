@@ -46,8 +46,8 @@ var (
 	errUnknownAppState = errors.New("unknown app state")
 
 	flagClearCache = flag.Bool("c", false, "clear cache")
+	flagDevName    = flag.String("d", "", "select device by substring of name, hostname (ip) or unique service name")
 	flagLastUsed   = flag.Bool("l", false, "select last used device")
-	flagName       = flag.String("n", "", "select device by substring of name, hostname (ip) or unique service name")
 	flagSearch     = flag.Bool("s", false, "search (discover) devices on the network and update cache")
 	flagTimeout    = flag.Duration("t", dial.MSearchMinTimeout, fmt.Sprintf("search timeout (max %s)", dial.MSearchMaxTimeout))
 	flagVerbose    = flag.Bool("verbose", false, "enable verbose logging")
@@ -64,8 +64,9 @@ type cast struct {
 }
 
 func main() {
+	flag.StringVar(flagDevName, "n", "", "deprecated, same as -d")
 	flag.Usage = func() {
-		fmt.Fprintf(flag.CommandLine.Output(), "usage: %s [-c|-l|-n|-s|-t|-v|-verbose] [video...]\n\n", progName)
+		fmt.Fprintf(flag.CommandLine.Output(), "usage: %s [-c|-d|-l|-s|-t|-v|-verbose] [video...]\n\n", progName)
 		fmt.Fprintf(flag.CommandLine.Output(), "cast YouTube videos to your smart TV.\n\n")
 		flag.PrintDefaults()
 		fmt.Fprintf(flag.CommandLine.Output(), "\n%s\n", progRepo)
@@ -106,8 +107,8 @@ func run() error {
 	var selected *cast
 	var err error
 	switch {
-	case *flagName != "":
-		if selected, err = matchOneDevice(cache, *flagName); err == nil {
+	case *flagDevName != "":
+		if selected, err = matchOneDevice(cache, *flagDevName); err == nil {
 			break
 		}
 		if !errors.Is(err, errNoDevMatch) {
@@ -119,7 +120,7 @@ func run() error {
 		if len(cache) == 0 {
 			return errNoDevFound
 		}
-		if selected, err = matchOneDevice(cache, *flagName); err != nil {
+		if selected, err = matchOneDevice(cache, *flagDevName); err != nil {
 			return err
 		}
 
@@ -130,7 +131,7 @@ func run() error {
 
 	case len(cache) == 0:
 		// this check is done here and NOT immediately after the first
-		// discoverDevices() to give a chance to rediscover in -n case.
+		// discoverDevices() to give a chance to rediscover in -d case.
 		return errNoDevFound
 
 	case *flagSearch:
