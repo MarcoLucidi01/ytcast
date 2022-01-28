@@ -47,7 +47,7 @@ var (
 
 	flagClearCache = flag.Bool("c", false, "clear cache")
 	flagDevName    = flag.String("d", "", "select device by substring of name, hostname (ip) or unique service name")
-	flagLastUsed   = flag.Bool("l", false, "select last used device")
+	flagLastUsed   = flag.Bool("p", false, "select last used device")
 	flagSearch     = flag.Bool("s", false, "search (discover) devices on the network and update cache")
 	flagTimeout    = flag.Duration("t", dial.MSearchMinTimeout, fmt.Sprintf("search timeout (max %s)", dial.MSearchMaxTimeout))
 	flagVerbose    = flag.Bool("verbose", false, "enable verbose logging")
@@ -66,7 +66,7 @@ type cast struct {
 func main() {
 	flag.StringVar(flagDevName, "n", "", "deprecated, same as -d")
 	flag.Usage = func() {
-		fmt.Fprintf(flag.CommandLine.Output(), "usage: %s [-c|-d|-l|-s|-t|-v|-verbose] [video...]\n\n", progName)
+		fmt.Fprintf(flag.CommandLine.Output(), "usage: %s [-c|-d|-p|-s|-t|-v|-verbose] [video...]\n\n", progName)
 		fmt.Fprintf(flag.CommandLine.Output(), "cast YouTube videos to your smart TV.\n\n")
 		flag.PrintDefaults()
 		fmt.Fprintf(flag.CommandLine.Output(), "\n%s\n", progRepo)

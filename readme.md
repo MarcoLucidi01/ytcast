@@ -75,9 +75,9 @@ query:
 
 (remember that the computer and the target device must be on the same network).
 
-to cast to the last used device use the `-l` option:
+to cast to the last used device use the `-p` option:
 
-    $ ytcast -l https://www.youtube.com/watch?v=dQw4w9WgXcQ
+    $ ytcast -p https://www.youtube.com/watch?v=dQw4w9WgXcQ
 
 `ytcast` can also read video urls (or ids) from `stdin` one per line:
 
@@ -251,7 +251,6 @@ TODO
 - [ ] add flag to "add only" videos to the queue (`-a`) without changing what's currently playing.
 - [ ] allow to play videos from specific timestamp (at least the first video).
 - [ ] playlist urls don't work!
-- [ ] rename `-l` to `-p`.
 - [ ] use `-l` to just list cached devices without getting `no device selected` error.
 
 other tools
