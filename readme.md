@@ -31,7 +31,7 @@ https://user-images.githubusercontent.com/23704923/147848611-0d20563e-f656-487a-
 
 - the computer running `ytcast` and the target device need to be on the **same
   network**.
-- the target device should have the YouTube on TV app already installed.
+- the target device must have the **YouTube on TV app already installed**.
 
 run `ytcast -h` for the full usage, here I'll show the basic options.
 
@@ -104,10 +104,23 @@ to see what's going on under the hood use the `-verbose` option:
 install
 -------
 
-you can either get a pre-compiled binary from the [latest release][20] assets and
-copy it anywhere in your `$PATH` or you can compile from source.
+you can get a pre-compiled binary from the [latest release][20] assets and copy
+it somewhere in your `$PATH`.
 
-a `go` compiler and `make` are required for building:
+here a quick and dirty one-liner script to do it fast (adjust `target` and `dir`
+to your needs, lookup available targets in the [latest release][20] assets):
+
+    $ (target="linux-amd64"; dir="$HOME/bin"; \
+       wget -O - https://api.github.com/repos/MarcoLucidi01/ytcast/releases/latest \
+        | jq -r --arg target "$target" '.assets[] | select(.name | match("checksums|"+$target)) | .browser_download_url' \
+        | wget -i - \
+       && sha256sum -c --ignore-missing ytcast-v*-checksums.txt \
+       && tar -vxf ytcast-v*"$target.tar.gz" \
+       && install -m 755 ytcast-v*"$target/ytcast" "$dir")
+
+if your os or architecture are not available, or you want to get the latest
+changes from `master`, you can compile from source. a `go` compiler and `make`
+are required for building and installing:
 
     $ git clone https://github.com/MarcoLucidi01/ytcast.git
     ...
@@ -121,7 +134,7 @@ usually install with:
 
     $ make install PREFIX=$HOME
     ...
-    go build -o ytcast -ldflags="-X main.progVersion=v0.1.0-7-ge9c96d3"
+    go build -trimpath -tags netgo,osusergo -ldflags="-w -s -X main.progVersion=v0.5.0-3-gd513b8e" -o ytcast
     mkdir -p /home/marco/bin
     install -m 755 ytcast /home/marco/bin
 
@@ -171,7 +184,7 @@ putting all together, what `ytcast` does is:
 
 1. search DIAL enabled devices on the local network (SSDP)
 2. get the state of the YouTube on TV app on the target device (DIAL)
-3. if the app it's stopped, start it (DIAL)
+3. if the app is stopped, start it (DIAL)
 4. get the `screenId` of the app (DIAL)
 5. get a token for that `screenId` (Lounge)
 6. call the api's "play video endpoint" passing the token and the video urls to
@@ -228,7 +241,6 @@ TODO
 - [ ] add flag to "add only" videos to the queue (`-a`) without changing what's currently playing.
 - [ ] allow to play videos from specific timestamp (at least the first video).
 - [ ] playlist urls don't work!
-- [ ] add example of installing pre-compiled binary.
 - [ ] rename `-n` to `-d` (but keep `-n` also because it's used in the video demo).
 - [ ] rename `-l` to `-p`.
 - [ ] use `-l` to just list cached devices without getting `no device selected` error.
