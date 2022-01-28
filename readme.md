@@ -110,8 +110,8 @@ it somewhere in your `$PATH`.
 here a quick and dirty one-liner script to do it fast (adjust `target` and `dir`
 to your needs, lookup available targets in the [latest release][20] assets):
 
-    $ (target="linux-amd64"; dir="$HOME/bin"; \
-       wget -O - https://api.github.com/repos/MarcoLucidi01/ytcast/releases/latest \
+    (target="linux-amd64"; dir="$HOME/bin"; \
+      wget -O - https://api.github.com/repos/MarcoLucidi01/ytcast/releases/latest \
         | jq -r --arg target "$target" '.assets[] | select(.name | match("checksums|"+$target)) | .browser_download_url' \
         | wget -i - \
        && sha256sum -c --ignore-missing ytcast-v*-checksums.txt \
