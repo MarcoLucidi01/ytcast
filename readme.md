@@ -18,9 +18,14 @@ to search them with the remote! this is why I wrote this tool. also my computing
 workflow is "command-line centric" and `ytcast` fits well in my toolbox (see
 [other tools][2]).
 
+https://user-images.githubusercontent.com/23704923/147848611-0d20563e-f656-487a-9774-9eb6feca1f58.mp4
+
+([video demo on YouTube if above doesn't play][3]).
+
 [0]: play-on-tv.png
 [1]: https://support.google.com/youtube/answer/7640706
 [2]: #other-tools
+[3]: https://www.youtube.com/watch?v=07aWOpi8DVk
 
 contents
 --------
@@ -34,10 +39,6 @@ contents
 
 usage
 -----
-
-https://user-images.githubusercontent.com/23704923/147848611-0d20563e-f656-487a-9774-9eb6feca1f58.mp4
-
-([video demo on YouTube if above doesn't play][10]).
 
 - the computer running `ytcast` and the target device need to be on the **same
   network**.
@@ -106,7 +107,6 @@ to see what's going on under the hood use the `-verbose` option:
 
 (please run with `-verbose` and **attach the log** when reporting an [issue][13]).
 
-[10]: https://www.youtube.com/watch?v=07aWOpi8DVk
 [11]: https://github.com/pystardust/ytfzf
 [12]: https://github.com/MarcoLucidi01/bin/blob/master/ytsearch
 [13]: https://github.com/MarcoLucidi01/ytcast/issues
