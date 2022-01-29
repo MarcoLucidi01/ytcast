@@ -1,6 +1,18 @@
 changelog
 =========
 
+## v1.0.0
+
+2022-01-29
+
+- `-l` flag is used now to list cached devices without getting an error (`4f19d6c`),
+  while `-p` is for selecting the last used device (`02f8ec8`).
+  this is an incompatible change so here we are at `v1.0.0`, the first major release!
+- renamed `-n` flag to more intuitive `-d` (device) (`9368df8`). `-n` can still
+  be used but is deprecated.
+- added a quick install script for binaries in the readme (`b3726d6`, `96af820`)
+  and various other readme updates e.g. a TOC (`ca36350`).
+
 ## v0.5.0
 
 2022-01-19
