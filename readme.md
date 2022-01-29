@@ -40,8 +40,8 @@ contents
 usage
 -----
 
-- the computer running `ytcast` and the target device need to be on the **same
-  network**.
+- the computer running `ytcast` and the target device must be on the **same network**.
+- the target device must support the **DIAL protocol** (see [how it works][14]).
 - the target device must have the **YouTube on TV app already installed**.
 
 run `ytcast -h` for the full usage, here I'll show the basic options.
@@ -58,7 +58,7 @@ to see the already discovered (cached) devices use the `-l` (list) option:
     d0881fbe 192.168.1.227   "[LG] webOS TV UM7100PLB"      cached
 
 to update the devices cache use the `-s` (search) option (it's implicit when the
-cache is empty or when `-d` doesn't match anything):
+cache is empty or when `-d` doesn't match anything in the cache):
 
     $ ytcast -s
     28bc7426 192.168.1.35    "FireTVStick di Marco"         lastused
@@ -78,7 +78,8 @@ to cast to the last used device use the `-p` option:
 
     $ ytcast -p https://www.youtube.com/watch?v=dQw4w9WgXcQ
 
-`ytcast` can also read video urls (or ids) from `stdin` one per line:
+when no url is passed in the arguments, `ytcast` reads video urls (or ids) from
+`stdin` one per line:
 
     $ ytcast -d lg < watchlist
 
@@ -109,6 +110,7 @@ to see what's going on under the hood use the `-verbose` option:
 [11]: https://github.com/pystardust/ytfzf
 [12]: https://github.com/MarcoLucidi01/bin/blob/master/ytsearch
 [13]: https://github.com/MarcoLucidi01/ytcast/issues
+[14]: #how-it-works
 
 install
 -------

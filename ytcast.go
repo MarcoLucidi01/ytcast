@@ -136,11 +136,11 @@ func run() error {
 		return errNoDevFound
 
 	case *flagList, *flagSearch:
-		showDevices(cache)
+		listDevices(cache)
 		return nil
 
 	default:
-		showDevices(cache)
+		listDevices(cache)
 		return errNoDevSelected
 	}
 
@@ -275,7 +275,7 @@ func findLastUsedDevice(cache map[string]*cast) *cast {
 	return nil
 }
 
-func showDevices(cache map[string]*cast) {
+func listDevices(cache map[string]*cast) {
 	var entries []*cast
 	for _, entry := range cache {
 		entries = append(entries, entry)
