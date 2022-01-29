@@ -70,7 +70,7 @@ func main() {
 		fmt.Fprintf(flag.CommandLine.Output(), "usage: %s [-c|-d|-l|-p|-s|-t|-v|-verbose] [video...]\n\n", progName)
 		fmt.Fprintf(flag.CommandLine.Output(), "cast YouTube videos to your smart TV.\n\n")
 		flag.PrintDefaults()
-		fmt.Fprintf(flag.CommandLine.Output(), "\n%s\n", progRepo)
+		fmt.Fprintf(flag.CommandLine.Output(), "\n%s %s\n%s\n", progName, progVersion, progRepo)
 	}
 	flag.Parse()
 
