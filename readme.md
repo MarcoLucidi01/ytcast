@@ -220,8 +220,9 @@ describing your setup and attach a `-verbose` log so we can investigate what's
 wrong and hopefully fix it.
 
 also **Chromecast**. I don't own a Chromecast and `ytcast` probably won't work
-with Chromecast because it doesn't use the DIAL protocol anymore (at least
-that's what I've read somewhere). `ytcast` (should) work with any DIAL enabled
+with Chromecast because it [doesn't use the DIAL protocol anymore, but switched
+to mDNS for discovery][38]. if I ever buy a Chromecast, then I'll probably add
+mDNS support to `ytcast`. for now, `ytcast` (should) work with any DIAL enabled
 device that supports the YouTube on TV app.
 
 [30]: http://www.dial-multiscreen.org
@@ -232,6 +233,7 @@ device that supports the YouTube on TV app.
 [35]: #thanks
 [36]: https://en.wikipedia.org/wiki/Wake-on-LAN
 [37]: https://github.com/MarcoLucidi01/ytcast/issues
+[38]: https://en.wikipedia.org/wiki/Chromecast#Device_discovery_protocols
 
 THANKS
 ------
@@ -252,6 +254,9 @@ TODO
 - [ ] add flag to "add only" videos to the queue (`-a`) without changing what's currently playing.
 - [ ] allow to play videos from specific timestamp (at least the first video).
 - [ ] playlist urls don't work!
+- [ ] add support to pairing with code? this would be a workaround for devices
+      that don't support the DIAL protocol (e.g. chromecast), but it will
+      introduce manual steps for pairing and Wake-On-Lan will not work.
 
 other tools
 -----------
