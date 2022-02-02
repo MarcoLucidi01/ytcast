@@ -255,7 +255,6 @@ building `ytcast`, especially the following projects/posts:
 TODO
 ----
 
-- [ ] add flag to "add only" videos to the queue (`-a`) without changing what's currently playing.
 - [ ] allow to play videos from specific timestamp (at least the first video).
 - [ ] playlist urls don't work!
 - [ ] add support to pairing with code? this would be a workaround for devices

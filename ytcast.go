@@ -45,6 +45,7 @@ var (
 	errNoVideo         = errors.New("no video to play")
 	errUnknownAppState = errors.New("unknown app state")
 
+	flagAdd        = flag.Bool("a", false, "add video(s) to queue, don't change what's currently playing")
 	flagClearCache = flag.Bool("c", false, "clear cache")
 	flagDevName    = flag.String("d", "", "select device by substring of name, hostname (ip) or unique service name")
 	flagLastUsed   = flag.Bool("p", false, "select last used device")
@@ -67,7 +68,7 @@ type cast struct {
 func main() {
 	flag.StringVar(flagDevName, "n", "", "deprecated, same as -d")
 	flag.Usage = func() {
-		fmt.Fprintf(flag.CommandLine.Output(), "usage: %s [-c|-d|-l|-p|-s|-t|-v|-verbose] [video...]\n\n", progName)
+		fmt.Fprintf(flag.CommandLine.Output(), "usage: %s [-a|-c|-d|-l|-p|-s|-t|-v|-verbose] [video...]\n\n", progName)
 		fmt.Fprintf(flag.CommandLine.Output(), "cast YouTube videos to your smart TV.\n\n")
 		flag.PrintDefaults()
 		fmt.Fprintf(flag.CommandLine.Output(), "\n%s %s\n%s\n", progName, progVersion, progRepo)
@@ -167,7 +168,31 @@ func run() error {
 	for _, entry := range cache {
 		entry.LastUsed = entry == selected
 	}
-	return playVideos(selected, screenId, videos)
+
+	if needsToConnect(selected.Remote, screenId) {
+		log.Printf("connecting to %q via YouTube Lounge", selected.Device.FriendlyName)
+		remote, err := youtube.Connect(screenId, getConnectName())
+		if err != nil {
+			return fmt.Errorf("Connect: %w", err)
+		}
+		selected.Remote = remote
+	}
+	// TODO move video id extraction in youtube package.
+	for i, v := range videos {
+		videos[i] = youtube.ExtractVideoId(v)
+	}
+	if *flagAdd {
+		log.Printf("requesting YouTube Lounge to add %v to %q's playing queue", videos, selected.Device.FriendlyName)
+		if err := selected.Remote.Add(videos...); err != nil {
+			return fmt.Errorf("Add: %w", err)
+		}
+		return nil
+	}
+	log.Printf("requesting YouTube Lounge to play %v on %q", videos, selected.Device.FriendlyName)
+	if err := selected.Remote.Play(videos...); err != nil {
+		return fmt.Errorf("Play: %w", err)
+	}
+	return nil
 }
 
 func mkCacheDir() string {
@@ -313,6 +338,7 @@ func (c *cast) String() string {
 		strings.Join(info, " "))
 }
 
+// TODO we could pass just *dial.Device here instead of *cast.
 func launchYouTubeApp(selected *cast) (string, error) {
 	appName := youtube.DialAppName
 	devName := selected.Device.FriendlyName
@@ -359,37 +385,21 @@ func readVideosFromStdin() ([]string, error) {
 	return videos, scanner.Err()
 }
 
-func playVideos(selected *cast, screenId string, videos []string) error {
-	doConnect := false
+func needsToConnect(remote *youtube.Remote, screenId string) bool {
 	switch {
-	case selected.Remote == nil:
-		doConnect = true
-	case selected.Remote.ScreenId != screenId:
+	case remote == nil:
+		return true
+	case remote.ScreenId != screenId:
 		log.Println("screenId changed")
-		doConnect = true
-	case selected.Remote.Expired():
+		return true
+	case remote.Expired():
 		log.Println("LoungeToken expired, trying refreshing it")
-		if err := selected.Remote.RefreshToken(); err != nil {
+		if err := remote.RefreshToken(); err != nil {
 			log.Printf("RefreshToken: %s", err)
-			doConnect = true
+			return true
 		}
 	}
-	if doConnect {
-		log.Printf("connecting to %q via YouTube Lounge", selected.Device.FriendlyName)
-		remote, err := youtube.Connect(screenId, getConnectName())
-		if err != nil {
-			return fmt.Errorf("Connect: %w", err)
-		}
-		selected.Remote = remote
-	}
-	for i, v := range videos {
-		videos[i] = youtube.ExtractVideoId(v)
-	}
-	log.Printf("requesting YouTube Lounge to play %v on %q", videos, selected.Device.FriendlyName)
-	if err := selected.Remote.Play(videos...); err != nil {
-		return fmt.Errorf("Play: %w", err)
-	}
-	return nil
+	return false
 }
 
 func getConnectName() string {
