@@ -151,6 +151,9 @@ usually install with:
 
 to uninstall run `make uninstall` (with the same `PREFIX` used for `install`).
 
+**Community maintained packages:**
+* Arch Linux ([AUR](https://aur.archlinux.org/packages/ytcast-bin/)): `yay -S ytcast-bin` or `pacman -S ytcast-bin`
+
 [20]: https://github.com/MarcoLucidi01/ytcast/releases/latest
 
 how it works
