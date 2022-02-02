@@ -22,6 +22,30 @@ func TestConnectAndPlay(t *testing.T) {
 	}
 }
 
+func TestConnectAndPlayAndAdd(t *testing.T) {
+	screenId := "" // put your screenId here
+
+	if screenId == "" {
+		t.SkipNow()
+	}
+	r, err := Connect(screenId, "TestConnectAndPlayAndAdd")
+	if err != nil {
+		t.Fatalf("unexpected error: %s", err)
+	}
+	if err := r.Play("Opqgwn8TdlM", "0MLaYe3y0BU"); err != nil {
+		t.Fatalf("unexpected error: %s", err)
+	}
+	if err := r.Add("RzWB5jL5RX0", "fPU7Uq4TtNU"); err != nil {
+		t.Fatalf("unexpected error: %s", err)
+	}
+	if err := r.Add("BK5x7IUTIyU"); err != nil {
+		t.Fatalf("unexpected error: %s", err)
+	}
+	if err := r.Add("ci1PJexnfNE"); err != nil {
+		t.Fatalf("unexpected error: %s", err)
+	}
+}
+
 func TestExtractLoungeToken(t *testing.T) {
 	tests := []struct {
 		data        []byte

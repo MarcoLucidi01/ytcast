@@ -5,10 +5,20 @@ package youtube
 import (
 	"encoding/xml"
 	"fmt"
+	"math/rand"
 	"net/url"
 	"path"
 	"strings"
+	"time"
 )
+
+func init() {
+	rand.Seed(time.Now().UnixNano())
+}
+
+func randDelay(min, max time.Duration) {
+	time.Sleep(min + time.Duration(rand.Int63n(int64(max-min))))
+}
 
 // ExtractScreenId extracts the screen id of a YouTube TV app from the xml tag
 // <additionalData> fetched with a GET request on the Application-URL (see DIAL

@@ -40,6 +40,9 @@ const (
 	paramRidPlay          = "2"
 	paramVer              = "8"
 
+	reqMinDelay = 2 * time.Second
+	reqMaxDelay = reqMinDelay + 3*time.Second
+
 	contentType = "application/x-www-form-urlencoded"
 	userAgent   = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/96.0.4664.45 Safari/537.36"
 
@@ -199,6 +202,7 @@ func extractSessionIds(data []byte) (string, string, error) {
 // Play requests the Lounge API to play immediately the first video on the
 // screen and to enqueue the others. It does not accept video urls, you must
 // pass only video ids.
+// TODO use a slice instead of varargs.
 func (r *Remote) Play(videoIds ...string) error {
 	if err := r.getSessionIds(); err != nil {
 		return fmt.Errorf("getSessionIds: %w", err)
@@ -213,10 +217,44 @@ func (r *Remote) Play(videoIds ...string) error {
 	b := url.Values{}
 	b.Set("count", "1")
 	b.Set("req0__sc", "setPlaylist")
-	b.Set("req0_videoId", videoIds[0])                  // play first video
-	b.Set("req0_videoIds", strings.Join(videoIds, ",")) // enqueue first and the others
+	b.Set("req0_videoId", videoIds[0])
+	b.Set("req0_videoIds", strings.Join(videoIds, ","))
+	b.Set("req0_currentTime", "0")
+	b.Set("req0_currentIndex", "0")
 	_, err := doReq("POST", apiBind, q, b)
 	return err
+}
+
+// Add requests the Lounge API to add videos to the queue without changing
+// what's currently playing. It does not accept video urls, you must pass only
+// video ids.
+// TODO use a slice instead of varargs.
+func (r *Remote) Add(videoIds ...string) error {
+	if err := r.getSessionIds(); err != nil {
+		return fmt.Errorf("getSessionIds: %w", err)
+	}
+	q := url.Values{}
+	q.Set("CVER", paramCver)
+	q.Set("RID", paramRidPlay)
+	q.Set("SID", r.SId)
+	q.Set("VER", paramVer)
+	q.Set("gsessionid", r.GSessionId)
+	q.Set("loungeIdToken", r.LoungeToken)
+	for i, vid := range videoIds {
+		// addVideo doesn't have reqX_videoIds parameter so we send a
+		// request for each video, but without this random delay the
+		// queue may get messed up and some video may get "lost". also,
+		// each reqX_ needs to have its own index for the same reason.
+		randDelay(reqMinDelay, reqMaxDelay)
+		b := url.Values{}
+		b.Set("count", "1")
+		b.Set(fmt.Sprintf("req%d__sc", i), "addVideo")
+		b.Set(fmt.Sprintf("req%d_videoId", i), vid)
+		if _, err := doReq("POST", apiBind, q, b); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func doReq(method, url string, query, body url.Values) ([]byte, error) {
