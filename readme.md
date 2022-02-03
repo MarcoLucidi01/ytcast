@@ -129,6 +129,9 @@ to your needs, lookup available targets in the [latest release][20] assets):
        && tar -vxf ytcast-v*"$target.tar.gz" \
        && install -m 755 ytcast-v*"$target/ytcast" "$dir")
 
+if you run Arch Linux (btw I don't) you can get [`ytcast-bin` from the AUR][21]
+(many thanks to the maintainer)!
+
 if your os or architecture are not available, or you want to get the latest
 changes from `master`, you can compile from source. a `go` compiler and `make`
 are required for building and installing:
@@ -151,10 +154,8 @@ usually install with:
 
 to uninstall run `make uninstall` (with the same `PREFIX` used for `install`).
 
-**Community maintained packages:**
-* Arch Linux ([AUR](https://aur.archlinux.org/packages/ytcast-bin/)): `yay -S ytcast-bin` or `pacman -S ytcast-bin`
-
 [20]: https://github.com/MarcoLucidi01/ytcast/releases/latest
+[21]: https://aur.archlinux.org/packages/ytcast-bin
 
 how it works
 ------------
