@@ -1,8 +1,8 @@
 // See license file for copyright and license details.
 
 // Package youtube implements a minimal client for the YouTube Lounge API which
-// allows to connect and play videos on a remote "screen" (YouTube tv app). The
-// API is not public so this code CAN BREAK AT ANY TIME.
+// allows to connect and play videos on a remote "screen" (YouTube on TV app).
+// The API is not public so this code CAN BREAK AT ANY TIME.
 //
 // The implementation derives from the work of various people I found on the web
 // that saved me hours of reverse engineering. I'd like to list and thank them
@@ -70,7 +70,7 @@ type Remote struct {
 	Name        string // name displayed on the screen at connection time.
 	LoungeToken string // token for Lounge API requests.
 	Expiration  int64  // LoungeToken expiration timestamp in milliseconds.
-	SId         string // session id? it can expire very often so we fetch it at each Play().
+	SId         string // session id? it can expire very often so we fetch it at each Play() or Add().
 	GSessionId  string // another session id? google session id? we fetch it along with SId.
 }
 
@@ -200,9 +200,8 @@ func extractSessionIds(data []byte) (string, string, error) {
 }
 
 // Play requests the Lounge API to play immediately the first video on the
-// screen and to enqueue the others. It does not accept video urls, you must
-// pass only video ids.
-func (r *Remote) Play(videoIds []string) error {
+// tv app and to enqueue the others. Accepts both video urls and video ids.
+func (r *Remote) Play(videos []string) error {
 	if err := r.getSessionIds(); err != nil {
 		return fmt.Errorf("getSessionIds: %w", err)
 	}
@@ -213,11 +212,14 @@ func (r *Remote) Play(videoIds []string) error {
 	q.Set("VER", paramVer)
 	q.Set("gsessionid", r.GSessionId)
 	q.Set("loungeIdToken", r.LoungeToken)
+	for i, v := range videos {
+		videos[i] = extractVideoId(v)
+	}
 	b := url.Values{}
 	b.Set("count", "1")
 	b.Set("req0__sc", "setPlaylist")
-	b.Set("req0_videoId", videoIds[0])
-	b.Set("req0_videoIds", strings.Join(videoIds, ","))
+	b.Set("req0_videoId", videos[0])
+	b.Set("req0_videoIds", strings.Join(videos, ","))
 	b.Set("req0_currentTime", "0")
 	b.Set("req0_currentIndex", "0")
 	_, err := doReq("POST", apiBind, q, b)
@@ -225,9 +227,8 @@ func (r *Remote) Play(videoIds []string) error {
 }
 
 // Add requests the Lounge API to add videos to the queue without changing
-// what's currently playing. It does not accept video urls, you must pass only
-// video ids.
-func (r *Remote) Add(videoIds []string) error {
+// what's currently playing on the tv app. Accepts both video urls and video ids.
+func (r *Remote) Add(videos []string) error {
 	if err := r.getSessionIds(); err != nil {
 		return fmt.Errorf("getSessionIds: %w", err)
 	}
@@ -238,7 +239,7 @@ func (r *Remote) Add(videoIds []string) error {
 	q.Set("VER", paramVer)
 	q.Set("gsessionid", r.GSessionId)
 	q.Set("loungeIdToken", r.LoungeToken)
-	for i, vid := range videoIds {
+	for i, v := range videos {
 		// addVideo doesn't have reqX_videoIds parameter so we send a
 		// request for each video, but without this random delay the
 		// queue may get messed up and some video may get "lost". also,
@@ -247,7 +248,7 @@ func (r *Remote) Add(videoIds []string) error {
 		b := url.Values{}
 		b.Set("count", "1")
 		b.Set(fmt.Sprintf("req%d__sc", i), "addVideo")
-		b.Set(fmt.Sprintf("req%d_videoId", i), vid)
+		b.Set(fmt.Sprintf("req%d_videoId", i), extractVideoId(v))
 		if _, err := doReq("POST", apiBind, q, b); err != nil {
 			return err
 		}

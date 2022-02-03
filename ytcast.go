@@ -177,10 +177,6 @@ func run() error {
 		}
 		selected.Remote = remote
 	}
-	// TODO move video id extraction in youtube package.
-	for i, v := range videos {
-		videos[i] = youtube.ExtractVideoId(v)
-	}
 	if *flagAdd {
 		log.Printf("requesting YouTube Lounge to add %v to %q's playing queue", videos, selected.Device.FriendlyName)
 		if err := selected.Remote.Add(videos); err != nil {

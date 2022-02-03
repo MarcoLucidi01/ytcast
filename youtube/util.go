@@ -37,10 +37,10 @@ func ExtractScreenId(data string) (string, error) {
 	return strings.TrimSpace(v.ScreenId), nil
 }
 
-// ExtractVideoId extracts the video id from a video url. If video is already a
+// extractVideoId extracts the video id from a video url. If video is already a
 // video id it is returned unchanged.
 // Supports various url formats (see util_test.go for examples).
-func ExtractVideoId(video string) string {
+func extractVideoId(video string) string {
 	video = strings.TrimSpace(video)
 	u, err := url.Parse(video)
 	if err != nil {

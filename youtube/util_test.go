@@ -36,7 +36,7 @@ func TestExtractVideoId(t *testing.T) {
 
 	const want = "0zM3nApSvMg"
 	for i, test := range tests {
-		videoId := ExtractVideoId(test)
+		videoId := extractVideoId(test)
 		if videoId != want {
 			t.Fatalf("tests[%d]: videoId: want %q got %q", i, want, videoId)
 		}
