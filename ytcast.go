@@ -183,13 +183,13 @@ func run() error {
 	}
 	if *flagAdd {
 		log.Printf("requesting YouTube Lounge to add %v to %q's playing queue", videos, selected.Device.FriendlyName)
-		if err := selected.Remote.Add(videos...); err != nil {
+		if err := selected.Remote.Add(videos); err != nil {
 			return fmt.Errorf("Add: %w", err)
 		}
 		return nil
 	}
 	log.Printf("requesting YouTube Lounge to play %v on %q", videos, selected.Device.FriendlyName)
-	if err := selected.Remote.Play(videos...); err != nil {
+	if err := selected.Remote.Play(videos); err != nil {
 		return fmt.Errorf("Play: %w", err)
 	}
 	return nil

@@ -17,13 +17,17 @@ func TestConnectAndPlay(t *testing.T) {
 	if err != nil {
 		t.Fatalf("unexpected error: %s", err)
 	}
-	if err := r.Play(videoIds...); err != nil {
+	if err := r.Play(videoIds); err != nil {
 		t.Fatalf("unexpected error: %s", err)
 	}
 }
 
 func TestConnectAndPlayAndAdd(t *testing.T) {
 	screenId := "" // put your screenId here
+	play1 := []string{"Opqgwn8TdlM", "0MLaYe3y0BU"}
+	add1 := []string{"RzWB5jL5RX0", "fPU7Uq4TtNU"}
+	add2 := []string{"BK5x7IUTIyU"}
+	add3 := []string{"ci1PJexnfNE"}
 
 	if screenId == "" {
 		t.SkipNow()
@@ -32,16 +36,16 @@ func TestConnectAndPlayAndAdd(t *testing.T) {
 	if err != nil {
 		t.Fatalf("unexpected error: %s", err)
 	}
-	if err := r.Play("Opqgwn8TdlM", "0MLaYe3y0BU"); err != nil {
+	if err := r.Play(play1); err != nil {
 		t.Fatalf("unexpected error: %s", err)
 	}
-	if err := r.Add("RzWB5jL5RX0", "fPU7Uq4TtNU"); err != nil {
+	if err := r.Add(add1); err != nil {
 		t.Fatalf("unexpected error: %s", err)
 	}
-	if err := r.Add("BK5x7IUTIyU"); err != nil {
+	if err := r.Add(add2); err != nil {
 		t.Fatalf("unexpected error: %s", err)
 	}
-	if err := r.Add("ci1PJexnfNE"); err != nil {
+	if err := r.Add(add3); err != nil {
 		t.Fatalf("unexpected error: %s", err)
 	}
 }

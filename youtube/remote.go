@@ -202,8 +202,7 @@ func extractSessionIds(data []byte) (string, string, error) {
 // Play requests the Lounge API to play immediately the first video on the
 // screen and to enqueue the others. It does not accept video urls, you must
 // pass only video ids.
-// TODO use a slice instead of varargs.
-func (r *Remote) Play(videoIds ...string) error {
+func (r *Remote) Play(videoIds []string) error {
 	if err := r.getSessionIds(); err != nil {
 		return fmt.Errorf("getSessionIds: %w", err)
 	}
@@ -228,8 +227,7 @@ func (r *Remote) Play(videoIds ...string) error {
 // Add requests the Lounge API to add videos to the queue without changing
 // what's currently playing. It does not accept video urls, you must pass only
 // video ids.
-// TODO use a slice instead of varargs.
-func (r *Remote) Add(videoIds ...string) error {
+func (r *Remote) Add(videoIds []string) error {
 	if err := r.getSessionIds(); err != nil {
 		return fmt.Errorf("getSessionIds: %w", err)
 	}
