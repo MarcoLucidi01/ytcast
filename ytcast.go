@@ -161,7 +161,7 @@ func run() error {
 			return fmt.Errorf("%q: TryWakeup: %w", selected.Device.FriendlyName, err)
 		}
 	}
-	screenId, err := launchYouTubeApp(selected)
+	screenId, err := launchYouTubeApp(selected.Device)
 	if err != nil {
 		return err
 	}
@@ -338,17 +338,14 @@ func (c *cast) String() string {
 		strings.Join(info, " "))
 }
 
-// TODO we could pass just *dial.Device here instead of *cast.
-func launchYouTubeApp(selected *cast) (string, error) {
-	appName := youtube.DialAppName
-	devName := selected.Device.FriendlyName
+func launchYouTubeApp(dev *dial.Device) (string, error) {
 	for start := time.Now(); time.Since(start) < launchTimeout; time.Sleep(launchCheckInterval) {
-		app, err := selected.Device.GetAppInfo(appName, youtube.Origin)
+		app, err := dev.GetAppInfo(youtube.DialAppName, youtube.Origin)
 		if err != nil {
-			return "", fmt.Errorf("%q: GetAppInfo: %q: %w", devName, appName, err)
+			return "", fmt.Errorf("%q: GetAppInfo: %q: %w", dev.FriendlyName, youtube.DialAppName, err)
 		}
 
-		log.Printf("%q is %s on %q", appName, app.State, devName)
+		log.Printf("%q is %s on %q", youtube.DialAppName, app.State, dev.FriendlyName)
 		switch app.State {
 		case "running":
 			screenId, err := youtube.ExtractScreenId(app.Additional.Data)
@@ -361,16 +358,16 @@ func launchYouTubeApp(selected *cast) (string, error) {
 			log.Println("screenId not available")
 
 		case "stopped", "hidden":
-			log.Printf("launching %q on %q", appName, devName)
-			if _, err := selected.Device.Launch(appName, youtube.Origin, ""); err != nil {
-				return "", fmt.Errorf("%q: Launch: %q: %w", devName, appName, err)
+			log.Printf("launching %q on %q", youtube.DialAppName, dev.FriendlyName)
+			if _, err := dev.Launch(youtube.DialAppName, youtube.Origin, ""); err != nil {
+				return "", fmt.Errorf("%q: Launch: %q: %w", dev.FriendlyName, youtube.DialAppName, err)
 			}
 
 		default:
-			return "", fmt.Errorf("%q: %q: %q: %w", devName, appName, app.State, errUnknownAppState)
+			return "", fmt.Errorf("%q: %q: %q: %w", dev.FriendlyName, youtube.DialAppName, app.State, errUnknownAppState)
 		}
 	}
-	return "", fmt.Errorf("%q: %q: %w", devName, appName, errNoLaunch)
+	return "", fmt.Errorf("%q: %q: %w", dev.FriendlyName, youtube.DialAppName, errNoLaunch)
 }
 
 func readVideosFromStdin() ([]string, error) {
