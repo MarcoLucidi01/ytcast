@@ -1,6 +1,18 @@
 changelog
 =========
 
+## v1.1.0
+
+2022-02-04
+
+- added `-a` (add) flag which allows to add videos to the queue without changing
+  what's currently playing (`1270918`, `b08e793`). the implementation is not
+  very pretty due to the Lounge api, but gets the job done (most of the times).
+- `ytcast-bin` is available on the Arch User Repository (AUR)! this will make it
+  easier for Arch Linux users to install the program. I'd like to thank the
+  maintainer and julianYaman for letting me know. a link to the AUR package has
+  been added in the readme (`b7741d7`).
+
 ## v1.0.0
 
 2022-01-29
