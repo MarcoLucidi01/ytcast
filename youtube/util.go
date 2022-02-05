@@ -8,9 +8,21 @@ import (
 	"math/rand"
 	"net/url"
 	"path"
+	"regexp"
 	"strings"
 	"time"
+	"unicode"
 )
+
+var (
+	// taken from this awesome answer https://webapps.stackexchange.com/a/101153
+	videoIdRe = regexp.MustCompile(`^[0-9A-Za-z_-]{10}[048AEIMQUYcgkosw]$`)
+)
+
+type videoInfo struct {
+	id        string
+	startTime time.Duration
+}
 
 func init() {
 	rand.Seed(time.Now().UnixNano())
@@ -37,21 +49,63 @@ func ExtractScreenId(data string) (string, error) {
 	return strings.TrimSpace(v.ScreenId), nil
 }
 
-// extractVideoId extracts the video id from a video url. If video is already a
-// video id it is returned unchanged.
-// Supports various url formats (see util_test.go for examples).
-func extractVideoId(video string) string {
-	video = strings.TrimSpace(video)
-	u, err := url.Parse(video)
-	if err != nil {
-		return video
+// extractVideoInfo extracts video information from a video url or query string
+// (see util_test.go for examples). It's not very smart.
+func extractVideoInfo(v string) videoInfo {
+	v = strings.TrimSpace(v)
+	// try simple query string first e.g. v=jNQXAC9IVRw&t=25
+	q, _ := url.ParseQuery(v)
+	info := videoInfo{
+		id:        extractVideoId(v, q),
+		startTime: extractStartTime(q),
 	}
-	vid := u.Query().Get("v")
-	if vid != "" {
-		return vid
+	if info.id == "" {
+		// only later try parsing as url because for example
+		// url.Parse("v=jNQXAC9IVRw&t=25") yields no error, but
+		// extraction won't work.
+		if u, err := url.Parse(v); err == nil {
+			q := u.Query()
+			info = videoInfo{
+				id:        extractVideoId(u.Path, q),
+				startTime: extractStartTime(q),
+			}
+		}
 	}
-	if vid = path.Base(u.Path); vid != "" && vid != "." && vid != "/" {
-		return vid
+	if info.id == "" {
+		info = videoInfo{id: v} // assume v is already a videoId, probably won't work.
 	}
-	return video
+	return info
+}
+
+func extractVideoId(p string, q url.Values) string {
+	if id := q.Get("v"); id != "" {
+		return id
+	}
+	bp := path.Base(p)
+	if i := strings.IndexRune(bp, '&'); i > -1 {
+		// strip "invalid" query parameters from base path, e.g.
+		// https://youtu.be/jNQXAC9IVRw&feature=channel
+		// this also works for query strings like jNQXAC9IVRw&t=25
+		bp = bp[:i]
+	}
+	// YouTube makes no guarantee on videoId format (see https://webapps.stackexchange.com/questions/54443)
+	// we use the regex only when we can't find it in the query parameters.
+	if videoIdRe.MatchString(bp) {
+		return bp
+	}
+	return ""
+}
+
+func extractStartTime(q url.Values) time.Duration {
+	t := q.Get("t")
+	if t == "" {
+		return 0
+	}
+	if unicode.IsDigit(rune(t[len(t)-1])) {
+		t += "s"
+	}
+	if d, err := time.ParseDuration(t); err == nil && d >= 0 {
+		return d
+	}
+	return 0
 }

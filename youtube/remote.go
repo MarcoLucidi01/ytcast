@@ -213,7 +213,7 @@ func (r *Remote) Play(videos []string) error {
 	q.Set("gsessionid", r.GSessionId)
 	q.Set("loungeIdToken", r.LoungeToken)
 	for i, v := range videos {
-		videos[i] = extractVideoId(v)
+		videos[i] = extractVideoInfo(v).id
 	}
 	b := url.Values{}
 	b.Set("count", "1")
@@ -248,7 +248,7 @@ func (r *Remote) Add(videos []string) error {
 		b := url.Values{}
 		b.Set("count", "1")
 		b.Set(fmt.Sprintf("req%d__sc", i), "addVideo")
-		b.Set(fmt.Sprintf("req%d_videoId", i), extractVideoId(v))
+		b.Set(fmt.Sprintf("req%d_videoId", i), extractVideoInfo(v).id)
 		if _, err := doReq("POST", apiBind, q, b); err != nil {
 			return err
 		}
