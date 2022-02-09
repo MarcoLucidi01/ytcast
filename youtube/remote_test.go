@@ -4,48 +4,50 @@ package youtube
 
 import (
 	"testing"
+	"time"
 )
 
-func TestConnectAndPlay(t *testing.T) {
-	screenId := "" // put your screenId here
-	videoIds := []string{"dQw4w9WgXcQ", "7BqJ8dzygtU", "EY6q5dv_B-o"}
-
+func connectOrSkip(t *testing.T, name, screenId string) *Remote {
 	if screenId == "" {
 		t.SkipNow()
 	}
-	r, err := Connect(screenId, "TestConnectAndPlay")
+	r, err := Connect(screenId, name)
 	if err != nil {
 		t.Fatalf("unexpected error: %s", err)
 	}
-	if err := r.Play(videoIds); err != nil {
+	return r
+}
+
+func TestPlay(t *testing.T) {
+	r := connectOrSkip(t, "TestPlay", "") // put your screenId here
+	if err := r.Play([]string{"dQw4w9WgXcQ", "7BqJ8dzygtU", "EY6q5dv_B-o"}); err != nil {
 		t.Fatalf("unexpected error: %s", err)
 	}
 }
 
-func TestConnectAndPlayAndAdd(t *testing.T) {
-	screenId := "" // put your screenId here
-	play1 := []string{"Opqgwn8TdlM", "0MLaYe3y0BU"}
-	add1 := []string{"RzWB5jL5RX0", "fPU7Uq4TtNU"}
-	add2 := []string{"BK5x7IUTIyU"}
-	add3 := []string{"ci1PJexnfNE"}
+func TestPlayAndAdd(t *testing.T) {
+	r := connectOrSkip(t, "TestPlayAndAdd", "") // put your screenId here
+	if err := r.Play([]string{"Opqgwn8TdlM", "0MLaYe3y0BU"}); err != nil {
+		t.Fatalf("unexpected error: %s", err)
+	}
+	if err := r.Add([]string{"RzWB5jL5RX0", "fPU7Uq4TtNU"}); err != nil {
+		t.Fatalf("unexpected error: %s", err)
+	}
+	if err := r.Add([]string{"BK5x7IUTIyU"}); err != nil {
+		t.Fatalf("unexpected error: %s", err)
+	}
+	if err := r.Add([]string{"ci1PJexnfNE"}); err != nil {
+		t.Fatalf("unexpected error: %s", err)
+	}
+}
 
-	if screenId == "" {
-		t.SkipNow()
-	}
-	r, err := Connect(screenId, "TestConnectAndPlayAndAdd")
-	if err != nil {
+func TestPlayFromTimestamp(t *testing.T) {
+	r := connectOrSkip(t, "TestPlayFromTimestamp", "") // put your screenId here
+	if err := r.Play([]string{"OgO1gpXSUzU&t=363"}); err != nil {
 		t.Fatalf("unexpected error: %s", err)
 	}
-	if err := r.Play(play1); err != nil {
-		t.Fatalf("unexpected error: %s", err)
-	}
-	if err := r.Add(add1); err != nil {
-		t.Fatalf("unexpected error: %s", err)
-	}
-	if err := r.Add(add2); err != nil {
-		t.Fatalf("unexpected error: %s", err)
-	}
-	if err := r.Add(add3); err != nil {
+	time.Sleep(5 * time.Second)
+	if err := r.Play([]string{"0JUN9aDxVmI&t=10m"}); err != nil {
 		t.Fatalf("unexpected error: %s", err)
 	}
 }

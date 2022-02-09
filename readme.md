@@ -255,7 +255,6 @@ building `ytcast`, especially the following projects/posts:
 TODO
 ----
 
-- [ ] allow to play videos from specific timestamp (at least the first video).
 - [ ] playlist urls don't work!
 - [ ] add support to pairing with code? this would be a workaround for devices
       that don't support the DIAL protocol (e.g. chromecast), but it will

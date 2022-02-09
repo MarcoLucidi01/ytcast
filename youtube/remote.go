@@ -23,6 +23,7 @@ import (
 	"log"
 	"net/http"
 	"net/url"
+	"strconv"
 	"strings"
 	"time"
 )
@@ -202,6 +203,9 @@ func extractSessionIds(data []byte) (string, string, error) {
 // Play requests the Lounge API to play immediately the first video on the
 // tv app and to enqueue the others. Accepts both video urls and video ids.
 func (r *Remote) Play(videos []string) error {
+	if len(videos) == 0 {
+		return nil
+	}
 	if err := r.getSessionIds(); err != nil {
 		return fmt.Errorf("getSessionIds: %w", err)
 	}
@@ -212,16 +216,19 @@ func (r *Remote) Play(videos []string) error {
 	q.Set("VER", paramVer)
 	q.Set("gsessionid", r.GSessionId)
 	q.Set("loungeIdToken", r.LoungeToken)
-	for i, v := range videos {
-		videos[i] = extractVideoInfo(v).id
-	}
 	b := url.Values{}
 	b.Set("count", "1")
 	b.Set("req0__sc", "setPlaylist")
-	b.Set("req0_videoId", videos[0])
-	b.Set("req0_videoIds", strings.Join(videos, ","))
-	b.Set("req0_currentTime", "0")
+	// start time can be set only for the first video.
+	first := extractVideoInfo(videos[0])
+	b.Set("req0_videoId", first.id)
+	b.Set("req0_currentTime", strconv.FormatInt(int64(first.startTime.Seconds()), 10))
 	b.Set("req0_currentIndex", "0")
+	var videoIds []string
+	for _, v := range videos {
+		videoIds = append(videoIds, extractVideoInfo(v).id)
+	}
+	b.Set("req0_videoIds", strings.Join(videoIds, ","))
 	_, err := doReq("POST", apiBind, q, b)
 	return err
 }
@@ -229,6 +236,9 @@ func (r *Remote) Play(videos []string) error {
 // Add requests the Lounge API to add videos to the queue without changing
 // what's currently playing on the tv app. Accepts both video urls and video ids.
 func (r *Remote) Add(videos []string) error {
+	if len(videos) == 0 {
+		return nil
+	}
 	if err := r.getSessionIds(); err != nil {
 		return fmt.Errorf("getSessionIds: %w", err)
 	}
