@@ -220,13 +220,14 @@ func (r *Remote) Play(videos []string) error {
 	b.Set("count", "1")
 	b.Set("req0__sc", "setPlaylist")
 	// start time can be set only for the first video.
-	first := extractVideoInfo(videos[0])
-	b.Set("req0_videoId", first.id)
-	b.Set("req0_currentTime", strconv.FormatInt(int64(first.startTime.Seconds()), 10))
+	id, startTime := extractVideoInfo(videos[0])
+	b.Set("req0_videoId", id)
+	b.Set("req0_currentTime", strconv.FormatInt(int64(startTime.Seconds()), 10))
 	b.Set("req0_currentIndex", "0")
 	var videoIds []string
 	for _, v := range videos {
-		videoIds = append(videoIds, extractVideoInfo(v).id)
+		id, _ := extractVideoInfo(v)
+		videoIds = append(videoIds, id)
 	}
 	b.Set("req0_videoIds", strings.Join(videoIds, ","))
 	_, err := doReq("POST", apiBind, q, b)
@@ -258,7 +259,8 @@ func (r *Remote) Add(videos []string) error {
 		b := url.Values{}
 		b.Set("count", "1")
 		b.Set(fmt.Sprintf("req%d__sc", i), "addVideo")
-		b.Set(fmt.Sprintf("req%d_videoId", i), extractVideoInfo(v).id)
+		id, _ := extractVideoInfo(v)
+		b.Set(fmt.Sprintf("req%d_videoId", i), id)
 		if _, err := doReq("POST", apiBind, q, b); err != nil {
 			return err
 		}

@@ -19,11 +19,6 @@ var (
 	videoIdRe = regexp.MustCompile(`^[0-9A-Za-z_-]{10}[048AEIMQUYcgkosw]$`)
 )
 
-type videoInfo struct {
-	id        string
-	startTime time.Duration
-}
-
 func init() {
 	rand.Seed(time.Now().UnixNano())
 }
@@ -51,30 +46,14 @@ func ExtractScreenId(data string) (string, error) {
 
 // extractVideoInfo extracts video information from a video url or query string
 // (see util_test.go for examples). It's not very smart.
-func extractVideoInfo(v string) videoInfo {
-	v = strings.TrimSpace(v)
-	// try simple query string first e.g. v=jNQXAC9IVRw&t=25
+func extractVideoInfo(v string) (string, time.Duration) {
+	v = strings.ReplaceAll(strings.TrimSpace(v), "?", "&") // treat urls as query strings.
 	q, _ := url.ParseQuery(v)
-	info := videoInfo{
-		id:        extractVideoId(v, q),
-		startTime: extractStartTime(q),
+	id := extractVideoId(v, q)
+	if id == "" {
+		return v, 0 // assume v is a videoId we weren't able to extract.
 	}
-	if info.id == "" {
-		// only later try parsing as url because for example
-		// url.Parse("v=jNQXAC9IVRw&t=25") yields no error, but
-		// extraction won't work.
-		if u, err := url.Parse(v); err == nil {
-			q := u.Query()
-			info = videoInfo{
-				id:        extractVideoId(u.Path, q),
-				startTime: extractStartTime(q),
-			}
-		}
-	}
-	if info.id == "" {
-		info = videoInfo{id: v} // assume v is already a videoId, probably won't work.
-	}
-	return info
+	return id, extractStartTime(q)
 }
 
 func extractVideoId(p string, q url.Values) string {
@@ -104,7 +83,7 @@ func extractStartTime(q url.Values) time.Duration {
 	if unicode.IsDigit(rune(t[len(t)-1])) {
 		t += "s"
 	}
-	if d, err := time.ParseDuration(t); err == nil && d >= 0 {
+	if d, err := time.ParseDuration(t); err == nil && d > 0 {
 		return d
 	}
 	return 0
