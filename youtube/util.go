@@ -88,3 +88,13 @@ func extractStartTime(q url.Values) time.Duration {
 	}
 	return 0
 }
+
+func removeSpaces(s string) string {
+	m := func(r rune) rune {
+		if unicode.IsSpace(r) {
+			return -1
+		}
+		return r
+	}
+	return strings.Map(m, s)
+}

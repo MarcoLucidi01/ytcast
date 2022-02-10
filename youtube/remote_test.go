@@ -52,6 +52,75 @@ func TestPlayFromTimestamp(t *testing.T) {
 	}
 }
 
+func TestConnectWithCode(t *testing.T) {
+	code := "" // put your TV code here
+	if code == "" {
+		t.SkipNow()
+	}
+	r, err := ConnectWithCode(code, "TestConnectWithCode")
+	if err != nil {
+		t.Fatalf("unexpected error: %s", err)
+	}
+	if err := r.Play([]string{"w3Wluvzoggg"}); err != nil {
+		t.Fatalf("unexpected error: %s", err)
+	}
+}
+
+func TestExtractScreenInfo(t *testing.T) {
+	tests := []struct {
+		data        []byte
+		screenId    string
+		loungeToken string
+		expiration  int64
+		deviceId    string
+		screenName  string
+	}{
+		{
+			data: []byte(`
+{
+  "screen": {
+    "accessType": "permanent",
+    "screenId": "screen-id-foo-bar-baz",
+    "dialAdditionalDataSupportLevel": "unknown",
+    "loungeTokenRefreshIntervalMs": 1123200000,
+    "loungeToken": "lounge-token-foo-bar-baz",
+    "clientName": "tvhtml5",
+    "name": "YouTube on TV",
+    "expiration": 1645614559007,
+    "deviceId": "device-id-foo-bar-baz"
+  }
+}`),
+			screenId:    "screen-id-foo-bar-baz",
+			loungeToken: "lounge-token-foo-bar-baz",
+			expiration:  int64(1645614559007),
+			deviceId:    "device-id-foo-bar-baz",
+			screenName:  "YouTube on TV",
+		},
+	}
+
+	for i, test := range tests {
+		screenId, loungeToken, expiration, deviceId, screenName, err := extractScreenInfo(test.data)
+		if err != nil {
+			t.Fatalf("tests[%d]: unexpected error: %s", i, err)
+		}
+		if test.screenId != screenId {
+			t.Fatalf("tests[%d]: screenId: want %q got %q", i, test.screenId, screenId)
+		}
+		if test.loungeToken != loungeToken {
+			t.Fatalf("tests[%d]: loungeToken: want %q got %q", i, test.loungeToken, loungeToken)
+		}
+		if test.expiration != expiration {
+			t.Fatalf("tests[%d]: expiration: want %q got %q", i, test.expiration, expiration)
+		}
+		if test.deviceId != deviceId {
+			t.Fatalf("tests[%d]: deviceId: want %q got %q", i, test.deviceId, deviceId)
+		}
+		if test.screenName != screenName {
+			t.Fatalf("tests[%d]: screenName: want %q got %q", i, test.screenName, screenName)
+		}
+	}
+}
+
 func TestExtractLoungeToken(t *testing.T) {
 	tests := []struct {
 		data        []byte
