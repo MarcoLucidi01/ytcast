@@ -256,9 +256,6 @@ TODO
 ----
 
 - [ ] playlist urls don't work!
-- [ ] add support to pairing with code? this would be a workaround for devices
-      that don't support the DIAL protocol (e.g. chromecast), but it will
-      introduce manual steps for pairing and Wake-On-Lan will not work.
 
 other tools
 -----------

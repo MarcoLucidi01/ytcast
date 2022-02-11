@@ -31,6 +31,8 @@ const (
 
 	launchTimeout       = 1 * time.Minute
 	launchCheckInterval = 3 * time.Second
+
+	fallbackIdFormat = "0405.0000.2006010215" // poor man's UUID.
 )
 
 var (
@@ -44,12 +46,14 @@ var (
 	errNoLaunch        = errors.New("unable to launch app and get screenId")
 	errNoVideo         = errors.New("no video to play")
 	errUnknownAppState = errors.New("unknown app state")
+	errInvalidCode     = errors.New("invalid pairing code")
 
 	flagAdd        = flag.Bool("a", false, "add video(s) to queue, don't change what's currently playing")
 	flagClearCache = flag.Bool("c", false, "clear cache")
 	flagDevName    = flag.String("d", "", "select device by substring of name, hostname (ip) or unique service name")
 	flagLastUsed   = flag.Bool("p", false, "select last used device")
 	flagList       = flag.Bool("l", false, "list cached devices")
+	flagPairCode   = flag.String("pair", "", "manual pair using TV code, skip device discovery")
 	flagSearch     = flag.Bool("s", false, "search (discover) devices on the network and update cache")
 	flagTimeout    = flag.Duration("t", dial.MSearchMinTimeout, fmt.Sprintf("search timeout (max %s)", dial.MSearchMaxTimeout))
 	flagVerbose    = flag.Bool("verbose", false, "enable verbose logging")
@@ -57,6 +61,7 @@ var (
 )
 
 // cast contains a dial.Device and the youtube.Remote connected to that Device.
+// Device will be nil if Remote was manually paired using a TV code.
 // It's stored in the cache.
 type cast struct {
 	Device   *dial.Device
@@ -68,7 +73,7 @@ type cast struct {
 func main() {
 	flag.StringVar(flagDevName, "n", "", "deprecated, same as -d")
 	flag.Usage = func() {
-		fmt.Fprintf(flag.CommandLine.Output(), "usage: %s [-a|-c|-d|-l|-p|-s|-t|-v|-verbose] [video...]\n\n", progName)
+		fmt.Fprintf(flag.CommandLine.Output(), "usage: %s [-a|-c|-d|-l|-p|-s|-t|-v|-pair|-verbose] [video...]\n\n", progName)
 		fmt.Fprintf(flag.CommandLine.Output(), "cast YouTube videos to your smart TV.\n\n")
 		flag.PrintDefaults()
 		fmt.Fprintf(flag.CommandLine.Output(), "\n%s %s\n%s\n", progName, progVersion, progRepo)
@@ -100,6 +105,9 @@ func run() error {
 	}
 	defer saveCache(cacheFilePath, cache)
 
+	if *flagPairCode != "" {
+		return manualPair(cache, *flagPairCode)
+	}
 	if len(cache) == 0 || *flagSearch {
 		if err := discoverDevices(cache, *flagTimeout); err != nil {
 			return err
@@ -155,36 +163,47 @@ func run() error {
 		}
 	}
 
-	if !selected.Device.Ping() {
-		log.Printf("%q is not awake, trying waking it up...", selected.Device.FriendlyName)
-		if err := selected.Device.TryWakeup(); err != nil {
-			return fmt.Errorf("%q: TryWakeup: %w", selected.Device.FriendlyName, err)
+	screenId := ""
+	if selected.wasManuallyPaired() {
+		// try to reuse the screenId since we can't know if it changed.
+		screenId = selected.Remote.ScreenId
+	} else {
+		if !selected.Device.Ping() {
+			log.Printf("%q is not awake, trying waking it up...", selected.name())
+			if err := selected.Device.TryWakeup(); err != nil {
+				return fmt.Errorf("%q: TryWakeup: %w", selected.name(), err)
+			}
 		}
-	}
-	screenId, err := launchYouTubeApp(selected.Device)
-	if err != nil {
-		return err
+		if screenId, err = launchYouTubeApp(selected.Device); err != nil {
+			return err
+		}
 	}
 	for _, entry := range cache {
 		entry.LastUsed = entry == selected
 	}
 
 	if needsToConnect(selected.Remote, screenId) {
-		log.Printf("connecting to %q via YouTube Lounge", selected.Device.FriendlyName)
+		log.Printf("connecting to %q via YouTube Lounge", selected.name())
 		remote, err := youtube.Connect(screenId, getConnectName())
 		if err != nil {
 			return fmt.Errorf("Connect: %w", err)
 		}
+		if selected.wasManuallyPaired() {
+			// these fields must be maintained because they are not
+			// returned by Connect(), but only by ConnectWithCode().
+			remote.DeviceId = selected.Remote.DeviceId
+			remote.ScreenName = selected.Remote.ScreenName
+		}
 		selected.Remote = remote
 	}
 	if *flagAdd {
-		log.Printf("requesting YouTube Lounge to add %v to %q's playing queue", videos, selected.Device.FriendlyName)
+		log.Printf("requesting YouTube Lounge to add %v to %q's playing queue", videos, selected.name())
 		if err := selected.Remote.Add(videos); err != nil {
 			return fmt.Errorf("Add: %w", err)
 		}
 		return nil
 	}
-	log.Printf("requesting YouTube Lounge to play %v on %q", videos, selected.Device.FriendlyName)
+	log.Printf("requesting YouTube Lounge to play %v on %q", videos, selected.name())
 	if err := selected.Remote.Play(videos); err != nil {
 		return fmt.Errorf("Play: %w", err)
 	}
@@ -225,7 +244,7 @@ func loadCache(fpath string) map[string]*cast {
 	}
 	for _, entry := range cacheValues {
 		entry.cached = true
-		cache[entry.Device.UniqueServiceName] = entry
+		cache[entry.uuid()] = entry
 	}
 	return cache
 }
@@ -244,6 +263,32 @@ func saveCache(fpath string, cache map[string]*cast) {
 	if err := ioutil.WriteFile(fpath, data, 0600); err != nil {
 		log.Println(err)
 	}
+}
+
+func manualPair(cache map[string]*cast, code string) error {
+	code = strings.TrimSpace(code)
+	if code == "" {
+		return errInvalidCode
+	}
+	log.Println("connecting to device via YouTube Lounge and pairing code")
+	remote, err := youtube.ConnectWithCode(code, getConnectName())
+	if err != nil {
+		return fmt.Errorf("ConnectWithCode: %w", err)
+	}
+	if remote.DeviceId == "" {
+		remote.DeviceId = strings.ReplaceAll(time.Now().Format(fallbackIdFormat), ".", "")
+	}
+	if remote.ScreenName == "" {
+		remote.ScreenName = remote.DeviceId
+	}
+	if entry, ok := cache[remote.DeviceId]; ok {
+		entry.Remote = remote
+		entry.cached = false
+	} else {
+		cache[remote.DeviceId] = &cast{Remote: remote}
+	}
+	fmt.Println(cache[remote.DeviceId])
+	return nil
 }
 
 func discoverDevices(cache map[string]*cast, timeout time.Duration) error {
@@ -266,9 +311,9 @@ func matchOneDevice(cache map[string]*cast, name string) (*cast, error) {
 	nameLow := strings.ToLower(strings.TrimSpace(name))
 	var matched []*cast
 	for _, entry := range cache {
-		matches := strings.Contains(strings.ToLower(entry.Device.FriendlyName), nameLow) ||
-			strings.Contains(strings.ToLower(entry.Device.Hostname()), nameLow) ||
-			strings.Contains(strings.ToLower(entry.Device.UniqueServiceName), nameLow)
+		matches := strings.Contains(strings.ToLower(entry.name()), nameLow) ||
+			strings.Contains(strings.ToLower(entry.hostname()), nameLow) ||
+			strings.Contains(strings.ToLower(entry.uuid()), nameLow)
 		if matches {
 			matched = append(matched, entry)
 		}
@@ -312,11 +357,36 @@ func listDevices(cache map[string]*cast) {
 		case entries[j].LastUsed:
 			return false
 		}
-		return entries[i].Device.FriendlyName < entries[j].Device.FriendlyName
+		return entries[i].name() < entries[j].name()
 	})
 	for _, entry := range entries {
 		fmt.Println(entry)
 	}
+}
+
+func (c *cast) wasManuallyPaired() bool {
+	return c.Device == nil // implies c.Remote != nil
+}
+
+func (c *cast) uuid() string {
+	if c.wasManuallyPaired() {
+		return c.Remote.DeviceId
+	}
+	return c.Device.UniqueServiceName
+}
+
+func (c *cast) name() string {
+	if c.wasManuallyPaired() {
+		return c.Remote.ScreenName
+	}
+	return c.Device.FriendlyName
+}
+
+func (c *cast) hostname() string {
+	if c.wasManuallyPaired() {
+		return "unknown"
+	}
+	return c.Device.Hostname()
 }
 
 func (c *cast) String() string {
@@ -328,10 +398,7 @@ func (c *cast) String() string {
 		info = append(info, "lastused")
 	}
 	return fmt.Sprintf("%.8s %-15s %-30q %s",
-		strings.TrimPrefix(c.Device.UniqueServiceName, "uuid:"),
-		c.Device.Hostname(),
-		c.Device.FriendlyName,
-		strings.Join(info, " "))
+		strings.TrimPrefix(c.uuid(), "uuid:"), c.hostname(), c.name(), strings.Join(info, " "))
 }
 
 func launchYouTubeApp(dev *dial.Device) (string, error) {
