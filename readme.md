@@ -33,8 +33,9 @@ contents
 - [usage](#usage)
 - [install](#install)
 - [how it works](#how-it-works)
+- [BUGS](#bugs)
+- [workarounds](#workarounds)
 - [THANKS](#thanks)
-- [TODO](#todo)
 - [other tools](#other-tools)
 
 usage
@@ -72,7 +73,10 @@ query:
     28bc7426 192.168.1.35    "FireTVStick di Marco"         lastused
     d0881fbe 192.168.1.227   "[LG] webOS TV UM7100PLB"      cached
 
-(remember that the computer and the target device must be on the same network).
+remember that the computer and the target device must be on the same network.
+if it doesn't show up after several tries, you may consider using the `-pair`
+option to skip the discovery process altogether. this adds some limitations
+though, see [workarounds][15].
 
 to cast to the last used device use the `-p` option:
 
@@ -111,6 +115,7 @@ to see what's going on under the hood use the `-verbose` option:
 [12]: https://github.com/MarcoLucidi01/bin/blob/master/ytsearch
 [13]: https://github.com/MarcoLucidi01/ytcast/issues
 [14]: #how-it-works
+[15]: #workarounds
 
 install
 -------
@@ -209,8 +214,8 @@ putting all together, what `ytcast` does is:
 steps every time, also if the target device is turned off, `ytcast` tries to
 wake it up with [Wake-on-Lan][36]).
 
-as you maybe have already guessed, all this **can stop working at any time!**
-the weakest point is the YouTube Lounge api since it's **not documented** and
+as you may have already guessed, all this **can stop working at any time!** the
+weakest point is the YouTube Lounge api since it's **not documented** and
 `ytcast` depends heavily on it. moreover, **`ytcast` may not work at all on your
 setup!** I use and test `ytcast` with 2 devices:
 
@@ -223,11 +228,10 @@ for sure). if it doesn't work on your setup please [open an issue][37]
 describing your setup and attach a `-verbose` log so we can investigate what's
 wrong and hopefully fix it.
 
-also **Chromecast**. I don't own a Chromecast and `ytcast` probably won't work
-with Chromecast because it [doesn't use the DIAL protocol anymore, but switched
-to mDNS for discovery][38]. if I ever buy a Chromecast, then I'll probably add
-mDNS support to `ytcast`. for now, `ytcast` (should) work with any DIAL enabled
-device that supports the YouTube on TV app.
+also **Chromecast**. I don't own a Chromecast and you'll probably need to use
+the `-pair` option (see [workarounds][38]) to make `ytcast` work with Chromecast
+because it [doesn't use the DIAL protocol anymore, but switched to mDNS for
+discovery][39].
 
 [30]: http://www.dial-multiscreen.org
 [31]: http://www.dial-multiscreen.org/dial-protocol-specification/DIAL-2ndScreenProtocol-2.2.1.pdf
@@ -237,7 +241,78 @@ device that supports the YouTube on TV app.
 [35]: #thanks
 [36]: https://en.wikipedia.org/wiki/Wake-on-LAN
 [37]: https://github.com/MarcoLucidi01/ytcast/issues
-[38]: https://en.wikipedia.org/wiki/Chromecast#Device_discovery_protocols
+[38]: #workarounds
+[39]: https://en.wikipedia.org/wiki/Chromecast#Device_discovery_protocols
+
+BUGS
+----
+
+- sometimes the playing queue gets "messed up" i.e. some videos are added
+  between others, some videos don't get added at all or even an old queue might
+  be "reused" so you could see videos from an old session after the ones you
+  requested to play. unfortunately, using (or misusing) an undocumented api may
+  lead to these kinds of problems and I haven't bothered too much trying to fix
+  them.
+
+- the `-a` (add) option is slower because it does an api call for each video you
+  want to add and adds a random "sleep delay" *before* each call. without this
+  delay, the queue gets messed up more easily and videos get lost i.e. they
+  don't get added to the queue.
+
+- playing a video from a specific starting time (`t` parameter in urls) works
+  only for the *first* video and only if you are *not* using the `-a` (add)
+  option.
+
+- `ytcast` doesn't appear in `Settings > Linked devices` menu. it used to show
+  up there and there was a button to "unlink all devices" which caused the
+  `screenId` to change, but a YouTube update "broke" this feature.
+
+workarounds
+-----------
+
+- some devices don't support the DIAL protocol ([notably Chromecast][60]) so
+  they can't be discovered by `ytcast`. the YouTube on TV app has a ["link with
+  code" functionality][61] which can be used as workaround to pair `ytcast` with
+  these devices. the pairing code can be found in `Settings > Link with TV code`
+  and then you can use the `-pair` option to do the pairing:
+
+      $ ytcast -pair 123456789101
+      8a59f138 unknown         "YouTube on TV"
+
+  once paired you can cast videos in the usual way:
+
+      $ ytcast -d 8a59 https://www.youtube.com/watch?v=t0Q2otsqC4I
+
+  when using this method, `ytcast` and the target device do *not* need to be on
+  the same network, but it adds many manual steps i.e. the YouTube on TV app
+  must be already open because `ytcast` won't be able to start it nor to
+  Wake-On-Lan the TV and it won't automatically "re-pair" when the `screenId`
+  changes (I don't know how often that happens).
+
+- playlist urls don't work with `ytcast`, I haven't found a reliable way to pass
+  playlist ids to the api. `youtube-dl` comes to the rescue (see also [other
+  tools][62]) since it can extract all video urls of YouTube playlists:
+
+      $ youtube-dl -j --flat-playlist https://www.youtube.com/playlist?list=PLrOv9FMX8xJHqMvSGB_9G9nZZ_4IgteYf | jq -r '.url' | ytcast -p
+
+  you can of course filter the pipeline as you like and this makes it so
+  flexible that I actually don't feel the need for `ytcast` to support playlist
+  urls: less is more!
+
+- this might sound obvious, but if you are tired of typing the device name (even
+  a substring of it) every time you want to cast something or if you have
+  multiple devices with the same name, you can define shell aliases and benefit
+  from shell tab-completion feature:
+
+      $ alias ytcbed="ytcast -d 'LG 32'"
+      $ ytcbed https://www.youtube.com/watch?v=dQw4w9WgXcQ
+
+  (see your shell documentation to make aliases persistent, usually you have to
+  add them in the shell's `rc` file).
+
+[60]: https://en.wikipedia.org/wiki/Chromecast#Device_discovery_protocols
+[61]: https://support.google.com/youtube/answer/3230451
+[62]: #other-tools
 
 THANKS
 ------
@@ -251,11 +326,6 @@ building `ytcast`, especially the following projects/posts:
 - https://bugs.xdavidhu.me/google/2021/04/05/i-built-a-tv-that-plays-all-of-your-private-youtube-videos
 - https://github.com/aykevl/plaincast
 - https://github.com/ur1katz/casttube
-
-TODO
-----
-
-- [ ] playlist urls don't work!
 
 other tools
 -----------

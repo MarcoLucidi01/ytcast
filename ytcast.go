@@ -266,8 +266,7 @@ func saveCache(fpath string, cache map[string]*cast) {
 }
 
 func manualPair(cache map[string]*cast, code string) error {
-	code = strings.TrimSpace(code)
-	if code == "" {
+	if code = strings.TrimSpace(code); code == "" {
 		return errInvalidCode
 	}
 	log.Println("connecting to device via YouTube Lounge and pairing code")
