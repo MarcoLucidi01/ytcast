@@ -1,6 +1,14 @@
 changelog
 =========
 
+## v1.2.0
+
+2022-02-15
+
+- added BUGS and workarounds sections in the readme (`7db2331`).
+- added `-pair` flag to manually pair a device with `ytcast` using a TV code (`7152d52`, `6f7b7d9`).
+- allow to start playing the first video from a specific time (`e4d504e`, `a595f8e`).
+
 ## v1.1.0
 
 2022-02-04
