@@ -7,7 +7,7 @@ GOFLAGS  = -trimpath -tags netgo,osusergo -ldflags="-w -s -X main.progVersion=$(
 RELEASE  = ./release
 PREFIX   = /usr/local
 PROGNAME = ytcast
-CROSSTARGETS = linux-386 linux-amd64 linux-arm linux-arm64 darwin-amd64 darwin-arm64
+CROSSTARGETS = linux-386 linux-amd64 linux-arm linux-arm64 darwin-amd64 darwin-arm64 windows-386 windows-amd64 windows-arm windows-arm64
 
 all: fmt vet test build
 
