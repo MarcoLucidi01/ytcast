@@ -85,13 +85,22 @@ log "creating archives"
 mkdir "archive.tmp"
 cp "$license" "$readme" "$changelog" "archive.tmp"
 for binname in "$progname-$relversion-"*; do
-        # this doesn't consider binary name extensions like .exe
-        mv "$binname" "archive.tmp/$progname"
+        archivecmd="tar -czf"
+        archivename="$binname.tar.gz"
+        archivebinname="$progname"
+        case "$binname" in *"windows"*)
+                archivecmd="zip -r"
+                archivename="$binname.zip"
+                archivebinname="$progname.exe"
+                ;;
+        esac
+        mv "$binname" "archive.tmp/$archivebinname"
         mv "archive.tmp" "$binname"
-        tar -czf "$binname.tar.gz" "$binname"
-        sha256sum "$binname.tar.gz" >> "$progname-$relversion-sha256-checksums.txt"
+        $archivecmd "$archivename" "$binname"
+        sha256sum "$archivename" >> "$progname-$relversion-sha256-checksums.txt"
         mv "$binname" "archive.tmp"
-        log "created $binname.tar.gz"
+        rm "archive.tmp/$archivebinname"
+        log "created $archivename"
 done
 rm -rf "archive.tmp"
 
@@ -119,7 +128,7 @@ relinfo="$(ghpost "application/json" "$reldata" "$relapiurl")"
 log "created new release $(echo "$relinfo" | jq -r '.html_url')"
 
 reluploadurl="$(echo "$relinfo" | jq -r '.upload_url' | sed 's/{.*$//')"
-for asset in "$progname-$relversion-"*".tar.gz" "$progname-$relversion-"*"-checksums.txt"; do
+for asset in "$progname-$relversion-"*[!t][!x][!t] "$progname-$relversion-"*"-checksums.txt"; do
         log "uploading $asset"
         assetinfo="$(ghpost "$(file --brief --mime-type "$asset")" "@$asset" "$reluploadurl?name=$asset")"
         log "uploaded $(echo "$assetinfo" | jq -r '.browser_download_url')"
