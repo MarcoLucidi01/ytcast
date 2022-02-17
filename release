@@ -128,7 +128,7 @@ relinfo="$(ghpost "application/json" "$reldata" "$relapiurl")"
 log "created new release $(echo "$relinfo" | jq -r '.html_url')"
 
 reluploadurl="$(echo "$relinfo" | jq -r '.upload_url' | sed 's/{.*$//')"
-for asset in "$progname-$relversion-"*[!t][!x][!t] "$progname-$relversion-"*"-checksums.txt"; do
+for asset in "$progname-$relversion-"*; do
         log "uploading $asset"
         assetinfo="$(ghpost "$(file --brief --mime-type "$asset")" "@$asset" "$reluploadurl?name=$asset")"
         log "uploaded $(echo "$assetinfo" | jq -r '.browser_download_url')"
