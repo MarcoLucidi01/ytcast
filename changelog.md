@@ -1,6 +1,14 @@
 changelog
 =========
 
+## v1.3.0
+
+2022-02-17
+
+- added pre-compiled binaries for macOS and Windows in the release assets
+  (`86e47fd`, `125fd19`, `c973eba`) as requested in issue #5 and #6.
+  this release doesn't include any changes to go code.
+
 ## v1.2.0
 
 2022-02-15
