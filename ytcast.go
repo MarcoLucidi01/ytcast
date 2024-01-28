@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"io"
 	"log"
+	"net"
 	"os"
 	"os/user"
 	"path/filepath"
@@ -38,6 +39,7 @@ const (
 var (
 	progVersion = "vX.Y.Z-dev" // set with -ldflags at build time
 
+	errNoAddr          = errors.New("no valid address for interface")
 	errNoDevFound      = errors.New("no device found")
 	errNoDevLastUsed   = errors.New("no device last used")
 	errNoDevMatch      = errors.New("no device matches")
@@ -48,16 +50,17 @@ var (
 	errUnknownAppState = errors.New("unknown app state")
 	errInvalidCode     = errors.New("invalid pairing code")
 
-	flagAdd        = flag.Bool("a", false, "add video(s) to queue, don't change what's currently playing")
-	flagClearCache = flag.Bool("c", false, "clear cache")
-	flagDevName    = flag.String("d", "", "select device by substring of name, hostname (ip) or unique service name")
-	flagLastUsed   = flag.Bool("p", false, "select last used device")
-	flagList       = flag.Bool("l", false, "list cached devices")
-	flagPairCode   = flag.String("pair", "", "manual pair using TV code, skip device discovery")
-	flagSearch     = flag.Bool("s", false, "search (discover) devices on the network and update cache")
-	flagTimeout    = flag.Duration("t", dial.MSearchMinTimeout, fmt.Sprintf("search timeout (max %s)", dial.MSearchMaxTimeout))
-	flagVerbose    = flag.Bool("verbose", false, "enable verbose logging")
-	flagVersion    = flag.Bool("v", false, "print program version")
+	flagAdd          = flag.Bool("a", false, "add video(s) to queue, don't change what's currently playing")
+	flagClearCache   = flag.Bool("c", false, "clear cache")
+	flagDevName      = flag.String("d", "", "select device by substring of name, hostname (ip) or unique service name")
+	flagNetInterface = flag.String("i", "", "specify network interface (or ip or hostname) to use for network operations")
+	flagLastUsed     = flag.Bool("p", false, "select last used device")
+	flagList         = flag.Bool("l", false, "list cached devices")
+	flagPairCode     = flag.String("pair", "", "manual pair using TV code, skip device discovery")
+	flagSearch       = flag.Bool("s", false, "search (discover) devices on the network and update cache")
+	flagTimeout      = flag.Duration("t", dial.MSearchMinTimeout, fmt.Sprintf("search timeout (max %s)", dial.MSearchMaxTimeout))
+	flagVerbose      = flag.Bool("verbose", false, "enable verbose logging")
+	flagVersion      = flag.Bool("v", false, "print program version")
 )
 
 // cast contains a dial.Device and the youtube.Remote connected to that Device.
@@ -73,7 +76,7 @@ type cast struct {
 func main() {
 	flag.StringVar(flagDevName, "n", "", "deprecated, same as -d")
 	flag.Usage = func() {
-		fmt.Fprintf(flag.CommandLine.Output(), "usage: %s [-a|-c|-d|-l|-p|-s|-t|-v|-pair|-verbose] [video...]\n\n", progName)
+		fmt.Fprintf(flag.CommandLine.Output(), "usage: %s [-a|-c|-d|-i|-l|-p|-s|-t|-v|-pair|-verbose] [video...]\n\n", progName)
 		fmt.Fprintf(flag.CommandLine.Output(), "cast YouTube videos to your smart TV.\n\n")
 		flag.PrintDefaults()
 		fmt.Fprintf(flag.CommandLine.Output(), "\n%s %s\n%s\n", progName, progVersion, progRepo)
@@ -105,17 +108,31 @@ func run() error {
 	}
 	defer saveCache(cacheFilePath, cache)
 
+	var err error
+	localAddr := ""
+	if *flagNetInterface != "" {
+		localAddr, err = addrFromInterface(*flagNetInterface)
+		if err != nil {
+			if errors.Is(err, errNoAddr) {
+				return fmt.Errorf("%s: addrFromInterface: %s", *flagNetInterface, err)
+			}
+			log.Printf("%s: addrFromInterface: %s", *flagNetInterface, err)
+			localAddr = *flagNetInterface // -i is not a valid interface, maybe it's an ip or hostname
+		}
+		log.Printf("using local address %s for network operations", localAddr)
+		localAddr += ":0" // use a random port
+	}
+
 	if *flagPairCode != "" {
-		return manualPair(cache, *flagPairCode)
+		return manualPair(cache, localAddr, *flagPairCode)
 	}
 	if len(cache) == 0 || *flagSearch {
-		if err := discoverDevices(cache, *flagTimeout); err != nil {
+		if err := discoverDevices(cache, localAddr, *flagTimeout); err != nil {
 			return err
 		}
 	}
 
 	var selected *cast
-	var err error
 	switch {
 	case *flagDevName != "":
 		if selected, err = matchOneDevice(cache, *flagDevName); err == nil {
@@ -124,7 +141,7 @@ func run() error {
 		if !errors.Is(err, errNoDevMatch) {
 			return err
 		}
-		if err = discoverDevices(cache, *flagTimeout); err != nil {
+		if err = discoverDevices(cache, localAddr, *flagTimeout); err != nil {
 			return err
 		}
 		if len(cache) == 0 {
@@ -163,6 +180,19 @@ func run() error {
 		}
 	}
 
+	// Device and (or) Remote could come from the cache, we need to make sure
+	// they use localAddr for network operations
+	if selected.Device != nil {
+		if err := selected.Device.SetLocalAddr(localAddr); err != nil {
+			return fmt.Errorf("%q: SetLocalAddr: %w", selected.name(), err)
+		}
+	}
+	if selected.Remote != nil {
+		if err := selected.Remote.SetLocalAddr(localAddr); err != nil {
+			return fmt.Errorf("%q: SetLocalAddr: %w", selected.name(), err)
+		}
+	}
+
 	screenId := ""
 	if selected.wasManuallyPaired() {
 		// try to reuse the screenId since we can't know if it changed.
@@ -184,7 +214,7 @@ func run() error {
 
 	if needsToConnect(selected.Remote, screenId) {
 		log.Printf("connecting to %q via YouTube Lounge", selected.name())
-		remote, err := youtube.Connect(screenId, getConnectName())
+		remote, err := youtube.Connect(localAddr, screenId, getConnectName())
 		if err != nil {
 			return fmt.Errorf("Connect: %w", err)
 		}
@@ -265,12 +295,29 @@ func saveCache(fpath string, cache map[string]*cast) {
 	}
 }
 
-func manualPair(cache map[string]*cast, code string) error {
+func addrFromInterface(name string) (string, error) {
+	iface, err := net.InterfaceByName(name)
+	if err != nil {
+		return "", err
+	}
+	addrs, err := iface.Addrs()
+	if err != nil {
+		return "", fmt.Errorf("%w: Addrs: %w", errNoAddr, err)
+	}
+	for _, addr := range addrs {
+		if a, ok := addr.(*net.IPNet); ok {
+			return a.IP.String(), nil
+		}
+	}
+	return "", errNoAddr
+}
+
+func manualPair(cache map[string]*cast, localAddr, code string) error {
 	if code = strings.TrimSpace(code); code == "" {
 		return errInvalidCode
 	}
 	log.Println("connecting to device via YouTube Lounge and pairing code")
-	remote, err := youtube.ConnectWithCode(code, getConnectName())
+	remote, err := youtube.ConnectWithCode(localAddr, code, getConnectName())
 	if err != nil {
 		return fmt.Errorf("ConnectWithCode: %w", err)
 	}
@@ -290,8 +337,8 @@ func manualPair(cache map[string]*cast, code string) error {
 	return nil
 }
 
-func discoverDevices(cache map[string]*cast, timeout time.Duration) error {
-	devCh, err := dial.Discover(nil, timeout)
+func discoverDevices(cache map[string]*cast, localAddr string, timeout time.Duration) error {
+	devCh, err := dial.Discover(nil, localAddr, timeout)
 	if err != nil {
 		return fmt.Errorf("Discover: %w", err)
 	}

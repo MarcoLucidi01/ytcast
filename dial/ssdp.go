@@ -44,7 +44,7 @@ type ssdpService struct {
 }
 
 // mSearch discovers network services sending an SSDP M-SEARCH request.
-func mSearch(searchTarget string, done chan struct{}, timeout time.Duration) (chan *ssdpService, error) {
+func mSearch(localAddr, searchTarget string, done chan struct{}, timeout time.Duration) (chan *ssdpService, error) {
 	timeout = clamp(timeout, MSearchMinTimeout, MSearchMaxTimeout)
 
 	maddr, err := net.ResolveUDPAddr("udp4", ssdpMulticastAddr)
@@ -52,7 +52,14 @@ func mSearch(searchTarget string, done chan struct{}, timeout time.Duration) (ch
 		return nil, err
 	}
 
-	conn, err := net.ListenUDP("udp4", nil)
+	var laddr *net.UDPAddr
+	if localAddr != "" {
+		if laddr, err = net.ResolveUDPAddr("udp4", localAddr); err != nil {
+			return nil, err
+		}
+	}
+
+	conn, err := net.ListenUDP("udp4", laddr)
 	if err != nil {
 		return nil, err
 	}

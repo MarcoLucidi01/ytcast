@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"io"
 	"log"
+	"net"
 	"net/http"
 	"net/url"
 	"path"
@@ -23,6 +24,8 @@ import (
 const (
 	dialSearchTarget = "urn:dial-multiscreen-org:service:dial:1"
 
+	httpTimeout = 5 * time.Second
+
 	contentType = "text/plain; charset=utf-8"
 
 	wakeupBroadcastAddr = "255.255.255.255:9"
@@ -31,7 +34,6 @@ const (
 )
 
 var (
-	httpClient    = &http.Client{Timeout: 5 * time.Second}
 	wakeupParseRe = regexp.MustCompile(`MAC=(.+);Timeout=(\d+)`)
 
 	errNoAppUrl = errors.New("missing Application-URL header")
@@ -41,6 +43,9 @@ var (
 
 // Device is a DIAL server device discovered on the network.
 type Device struct {
+	localAddr  string       // localAddr is the local address the Device instance must use for network operations.
+	httpClient *http.Client // httpClient is an http.Client setup to use localAddr.
+
 	UniqueServiceName string // UniqueServiceName from the ssdpService.
 	Location          string // Location from the ssdpService.
 	ApplicationUrl    string // base DIAL REST service url.
@@ -94,8 +99,13 @@ type AppInfo struct {
 }
 
 // Discover discovers (unique) DIAL server devices on the network.
-func Discover(done chan struct{}, timeout time.Duration) (chan *Device, error) {
-	ssdpCh, err := mSearch(dialSearchTarget, done, timeout)
+func Discover(done chan struct{}, localAddr string, timeout time.Duration) (chan *Device, error) {
+	hc, err := newHTTPClient(localAddr)
+	if err != nil {
+		return nil, err
+	}
+
+	ssdpCh, err := mSearch(localAddr, dialSearchTarget, done, timeout)
 	if err != nil {
 		return nil, err
 	}
@@ -114,7 +124,7 @@ func Discover(done chan struct{}, timeout time.Duration) (chan *Device, error) {
 			wg.Add(1)
 			go func(service *ssdpService) {
 				defer wg.Done()
-				respBody, headers, err := doReq("GET", service.location, "", "")
+				respBody, headers, err := doReq(hc, "GET", service.location, "", "")
 				if err != nil {
 					log.Println(err)
 					return
@@ -122,6 +132,10 @@ func Discover(done chan struct{}, timeout time.Duration) (chan *Device, error) {
 				dev, err := parseDevice(service, respBody, headers)
 				if err != nil {
 					log.Printf("%s: parseDevice: %s", service.location, err)
+					return
+				}
+				if err := dev.SetLocalAddr(localAddr); err != nil {
+					log.Printf("%s: SetLocalAddr: %s", dev.FriendlyName, err)
 					return
 				}
 				log.Printf("discovered DIAL device %q", dev.FriendlyName)
@@ -141,7 +155,25 @@ func Discover(done chan struct{}, timeout time.Duration) (chan *Device, error) {
 	return devCh, nil
 }
 
-func doReq(method, url string, origin, body string) ([]byte, http.Header, error) {
+func newHTTPClient(localAddr string) (*http.Client, error) {
+	hc := &http.Client{Timeout: httpTimeout}
+	if localAddr == "" {
+		return hc, nil
+	}
+	laddr, err := net.ResolveTCPAddr("tcp", localAddr)
+	if err != nil {
+		return nil, err
+	}
+	hc.Transport = http.DefaultTransport.(*http.Transport).Clone()
+	hc.Transport.(*http.Transport).DialContext = (&net.Dialer{
+		LocalAddr: laddr,
+		Timeout:   httpTimeout,
+		KeepAlive: httpTimeout,
+	}).DialContext
+	return hc, nil
+}
+
+func doReq(httpClient *http.Client, method, url string, origin, body string) ([]byte, http.Header, error) {
 	req, err := http.NewRequest(method, url, strings.NewReader(body))
 	if err != nil {
 		return nil, nil, err
@@ -205,6 +237,21 @@ func parseWakeup(v string) Wakeup {
 	return Wakeup{Mac: mac, Timeout: time.Duration(timeout) * time.Second}
 }
 
+// SetLocalAddr sets the local address the Device instance must use for network
+// operations.
+func (d *Device) SetLocalAddr(localAddr string) error {
+	if d.httpClient != nil && d.localAddr == localAddr {
+		return nil // localAddr already set, no need to recreate an http.Client.
+	}
+	hc, err := newHTTPClient(localAddr)
+	if err != nil {
+		return err
+	}
+	d.localAddr = localAddr
+	d.httpClient = hc
+	return nil
+}
+
 // GetAppInfo returns information about an application on the Device.
 // appName should be an application name registered in the DIAL Registry.
 // origin (if present) will be passed as Origin HTTP header.
@@ -213,7 +260,7 @@ func (d *Device) GetAppInfo(appName, origin string) (*AppInfo, error) {
 	if err != nil {
 		return nil, err
 	}
-	respBody, _, err := doReq("GET", u, origin, "")
+	respBody, _, err := doReq(d.httpClient, "GET", u, origin, "")
 	if err != nil {
 		return nil, err
 	}
@@ -244,7 +291,7 @@ func (d *Device) Launch(appName, origin, payload string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	_, headers, err := doReq("POST", u, origin, payload)
+	_, headers, err := doReq(d.httpClient, "POST", u, origin, payload)
 	if err != nil {
 		return "", err
 	}
@@ -264,14 +311,14 @@ func (d *Device) TryWakeup() error {
 	defer close(done)
 	timeout := clamp(d.Wakeup.Timeout*2, wakeupMinTimeout, wakeupMaxTimeout)
 	for start := time.Now(); time.Since(start) < timeout; {
-		if err := wakeOnLan(d.Wakeup.Mac, wakeupBroadcastAddr); err != nil {
+		if err := wakeOnLan(d.Wakeup.Mac, d.localAddr, wakeupBroadcastAddr); err != nil {
 			return err
 		}
 		if d.Ping() {
 			return nil
 		}
 		// Ping() may have failed because the device changed ip or port.
-		devCh, err := Discover(done, MSearchMinTimeout+1*time.Second)
+		devCh, err := Discover(done, d.localAddr, MSearchMinTimeout+1*time.Second)
 		if err != nil {
 			return fmt.Errorf("Discover: %w", err)
 		}
@@ -287,7 +334,7 @@ func (d *Device) TryWakeup() error {
 
 // Ping returns true if the Device is up i.e. if it responds to requests.
 func (d *Device) Ping() bool {
-	_, _, err := doReq("GET", d.ApplicationUrl, "", "")
+	_, _, err := doReq(d.httpClient, "GET", d.ApplicationUrl, "", "")
 	if err != nil && errors.Is(err, errBadHttpStatus) {
 		return true
 	}

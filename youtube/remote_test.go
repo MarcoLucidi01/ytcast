@@ -11,7 +11,7 @@ func connectOrSkip(t *testing.T, name, screenId string) *Remote {
 	if screenId == "" {
 		t.SkipNow()
 	}
-	r, err := Connect(screenId, name)
+	r, err := Connect("", screenId, name)
 	if err != nil {
 		t.Fatalf("unexpected error: %s", err)
 	}
@@ -57,7 +57,7 @@ func TestConnectWithCode(t *testing.T) {
 	if code == "" {
 		t.SkipNow()
 	}
-	r, err := ConnectWithCode(code, "TestConnectWithCode")
+	r, err := ConnectWithCode("", code, "TestConnectWithCode")
 	if err != nil {
 		t.Fatalf("unexpected error: %s", err)
 	}

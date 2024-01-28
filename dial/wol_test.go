@@ -14,7 +14,7 @@ func TestWakeOnLan(t *testing.T) {
 	if mac == "" {
 		t.SkipNow()
 	}
-	if err := wakeOnLan(mac, baddr); err != nil {
+	if err := wakeOnLan(mac, "", baddr); err != nil {
 		t.Fatalf("unexpected error: %s", err)
 	}
 }

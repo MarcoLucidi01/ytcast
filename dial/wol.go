@@ -11,13 +11,19 @@ import "net"
 // baddr is UDP's destination address, should be a broadcast address, usually
 // "255.255.255.255:9" is a good choice (limited broadcast address and
 // discard port).
-func wakeOnLan(mac, baddr string) error {
+func wakeOnLan(mac, laddr, baddr string) error {
 	addr, err := net.ParseMAC(mac)
 	if err != nil {
 		return err
 	}
+	var d net.Dialer
+	if laddr != "" {
+		if d.LocalAddr, err = net.ResolveUDPAddr("udp", laddr); err != nil {
+			return err
+		}
+	}
 	magic := makeMagicPacket(addr)
-	conn, err := net.Dial("udp", baddr)
+	conn, err := d.Dial("udp", baddr)
 	if err != nil {
 		return err
 	}
