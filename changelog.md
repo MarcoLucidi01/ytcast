@@ -1,6 +1,15 @@
 changelog
 =========
 
+## v1.4.0
+
+2024-01-28
+
+- added `-i` (interface) flag to specify the local interface (or ip address or
+  hostname) to use for network operations (`fc5916a`).
+  this is useful for hosts that have multiple network interfaces and wish to
+  restrict `ytcast` operations to a specific interface. see issue #8.
+
 ## v1.3.0
 
 2022-02-17
