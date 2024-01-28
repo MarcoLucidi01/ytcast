@@ -8,7 +8,7 @@ import (
 	"errors"
 	"flag"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"log"
 	"os"
 	"os/user"
@@ -86,7 +86,7 @@ func main() {
 	}
 	log.SetFlags(log.Ltime | log.Lshortfile)
 	if !*flagVerbose {
-		log.SetOutput(ioutil.Discard)
+		log.SetOutput(io.Discard)
 	}
 	log.Printf("%s %s\n", progName, progVersion)
 
@@ -232,7 +232,7 @@ func mkCacheDir() string {
 func loadCache(fpath string) map[string]*cast {
 	log.Printf("loading cache %s", fpath)
 	cache := make(map[string]*cast)
-	data, err := ioutil.ReadFile(fpath)
+	data, err := os.ReadFile(fpath)
 	if err != nil {
 		log.Println(err)
 		return cache
@@ -260,7 +260,7 @@ func saveCache(fpath string, cache map[string]*cast) {
 		log.Printf("marshal cache: %s", err)
 		return
 	}
-	if err := ioutil.WriteFile(fpath, data, 0600); err != nil {
+	if err := os.WriteFile(fpath, data, 0600); err != nil {
 		log.Println(err)
 	}
 }

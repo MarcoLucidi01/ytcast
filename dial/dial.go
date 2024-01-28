@@ -8,7 +8,7 @@ import (
 	"encoding/xml"
 	"errors"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"log"
 	"net/http"
 	"net/url"
@@ -159,7 +159,7 @@ func doReq(method, url string, origin, body string) ([]byte, http.Header, error)
 		return nil, nil, err
 	}
 	defer resp.Body.Close()
-	respBody, err := ioutil.ReadAll(resp.Body)
+	respBody, err := io.ReadAll(resp.Body)
 	if err == nil && (resp.StatusCode < 200 || resp.StatusCode > 299) {
 		err = fmt.Errorf("%s %s: %s: %w", method, url, resp.Status, errBadHttpStatus)
 	}

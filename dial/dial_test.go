@@ -6,7 +6,7 @@ import (
 	"bufio"
 	"bytes"
 	"encoding/xml"
-	"io/ioutil"
+	"io"
 	"net/http"
 	"testing"
 	"time"
@@ -121,7 +121,7 @@ func makeResp(t *testing.T, raw []byte) ([]byte, http.Header) {
 		t.Fatalf("unexpected error: %s", err)
 	}
 	defer resp.Body.Close()
-	respBody, err := ioutil.ReadAll(resp.Body)
+	respBody, err := io.ReadAll(resp.Body)
 	if err != nil {
 		t.Fatalf("unexpected error: %s", err)
 	}
