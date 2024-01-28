@@ -12,7 +12,7 @@ import (
 	"log"
 	"os"
 	"os/user"
-	"path"
+	"path/filepath"
 	"sort"
 	"strings"
 	"time"
@@ -98,7 +98,7 @@ func main() {
 }
 
 func run() error {
-	cacheFilePath := path.Join(mkCacheDir(), cacheFileName)
+	cacheFilePath := filepath.Join(mkCacheDir(), cacheFileName)
 	cache := make(map[string]*cast)
 	if !*flagClearCache {
 		cache = loadCache(cacheFilePath)
@@ -218,9 +218,9 @@ func mkCacheDir() string {
 			log.Println(err)
 			return "." // current directory
 		}
-		cacheDir = path.Join(homeDir, fallbackCacheDir)
+		cacheDir = filepath.Join(homeDir, fallbackCacheDir)
 	}
-	cacheDir = path.Join(cacheDir, progName)
+	cacheDir = filepath.Join(cacheDir, progName)
 	log.Printf("mkdir -p %s", cacheDir)
 	if err := os.MkdirAll(cacheDir, 0755); err != nil {
 		log.Println(err)
