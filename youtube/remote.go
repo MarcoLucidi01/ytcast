@@ -153,7 +153,7 @@ func extractScreenInfo(data []byte) (string, string, int64, string, string, erro
 		Screen struct {
 			ScreenId    string `json:"screenId"`
 			LoungeToken string `json:"loungeToken"`
-			Expiration  int64  `json:"expiration"`
+			Expiration  string `json:"expiration"`
 			DeviceId    string `json:"deviceId"`
 			Name        string `json:"name"`
 		} `json:"screen"`
@@ -167,7 +167,11 @@ func extractScreenInfo(data []byte) (string, string, int64, string, string, erro
 	if v.Screen.LoungeToken == "" {
 		return "", "", 0, "", "", errNoToken
 	}
-	return v.Screen.ScreenId, v.Screen.LoungeToken, v.Screen.Expiration, v.Screen.DeviceId, v.Screen.Name, nil
+	expirationInt, err := strconv.ParseInt(v.Screen.Expiration, 10, 64)
+	if err != nil {
+		return "", "", 0, "", "", fmt.Errorf("invalid expiration: %w", err)
+	}
+	return v.Screen.ScreenId, v.Screen.LoungeToken, expirationInt, v.Screen.DeviceId, v.Screen.Name, nil
 }
 
 // SetLocalAddr sets the local address the Remote instance must use for network

@@ -86,7 +86,7 @@ func TestExtractScreenInfo(t *testing.T) {
     "loungeToken": "lounge-token-foo-bar-baz",
     "clientName": "tvhtml5",
     "name": "YouTube on TV",
-    "expiration": 1645614559007,
+    "expiration": "1645614559007",
     "deviceId": "device-id-foo-bar-baz"
   }
 }`),
