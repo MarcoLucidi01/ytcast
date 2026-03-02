@@ -61,6 +61,20 @@ func TestConnectWithCode(t *testing.T) {
 	if err != nil {
 		t.Fatalf("unexpected error: %s", err)
 	}
+	if r.Expired() {
+		t.Fatalf("token expired")
+	}
+	// force a RefreshToken to test also the getLoungeToken API.
+	// the getScreen API (called by ConnectWithCode) returns the token
+	// expiration timestamp as string, while getLoungeToken (called by
+	// RefreshToken) returns the expiration as number, so with this test we
+	// check the parsing of both formats
+	if err := r.RefreshToken(); err != nil {
+		t.Fatalf("unexpected error: %s", err)
+	}
+	if r.Expired() {
+		t.Fatalf("token expired")
+	}
 	if err := r.Play([]string{"w3Wluvzoggg"}); err != nil {
 		t.Fatalf("unexpected error: %s", err)
 	}
@@ -86,7 +100,7 @@ func TestExtractScreenInfo(t *testing.T) {
     "loungeToken": "lounge-token-foo-bar-baz",
     "clientName": "tvhtml5",
     "name": "YouTube on TV",
-    "expiration": 1645614559007,
+    "expiration": "1645614559007",
     "deviceId": "device-id-foo-bar-baz"
   }
 }`),
