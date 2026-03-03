@@ -1,6 +1,12 @@
 changelog
 =========
 
+## v1.4.1
+
+2026-03-03
+
+- fixed token expiration field type in pair-with-code api response (`87428de`).
+
 ## v1.4.0
 
 2024-01-28
