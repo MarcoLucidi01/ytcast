@@ -124,7 +124,7 @@ func TestExtractScreenInfo(t *testing.T) {
 			t.Fatalf("tests[%d]: loungeToken: want %q got %q", i, test.loungeToken, loungeToken)
 		}
 		if test.expiration != expiration {
-			t.Fatalf("tests[%d]: expiration: want %q got %q", i, test.expiration, expiration)
+			t.Fatalf("tests[%d]: expiration: want %d got %d", i, test.expiration, expiration)
 		}
 		if test.deviceId != deviceId {
 			t.Fatalf("tests[%d]: deviceId: want %q got %q", i, test.deviceId, deviceId)
